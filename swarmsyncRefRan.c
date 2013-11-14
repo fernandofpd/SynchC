@@ -67,20 +67,13 @@ int main(int argc,char **argv)
     /* neuron phase Gam, motion angle Phi */ 
     /* xy-position Pxy, xy-velocity Vxy */
     double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
-    int *P;
-    char file1[128];
+    int *P;    
     FILE *out1;
 
     if(opt_flag(&argc,argv,"-h")) {
         printf("\nOptions: -n\n\n");
         exit(0);
     }
-
-    /*sprintf(file1,"map");
-    opt_string(&argc,argv,"-o",file1);
-    strcat(file1,".tim");
-
-    opt_save(&argc,argv,file1,"w"); */
 
     opt_int(&argc,argv,"-n",&n);
     opt_int(&argc,argv,"-N",&S);
@@ -91,8 +84,7 @@ int main(int argc,char **argv)
     opt_double(&argc,argv,"-L",&L);
 
     out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
-
-    /*TT = ivector(1,S);*/
+    
     P = ivector(1,S);
     Gam = dvector(1,S);
     Phi = dvector(1,S);
@@ -122,25 +114,18 @@ int main(int argc,char **argv)
             /* when reference unit 1 fires print out order parameter */
             if(p==1) {
                 phase = orderpar(Gam);
-                //for(j=1;j<=S;j++) fprintf(out1,"%.5g %.5g %.5g ",Px[j],Vx[j],Gam[j]);
-                //fprintf(out1,"%.5g %.5g ",Px[1],Py[1]);
                 fprintf(out1,"%.5g ",phase);
                 fprintf(out1,"\n");
             }
             Gam[p]=0;
             /* the loop for the case that firing triggers other firings */
             while(fin > 0) {
-                nn=nearest(Px,Py,p);
-                //printf("%.5g \n",Vx[1]);
-                Gam[nn] *= (1+eps);
-                //Phi[nn] = 2*Pi*ranMT();
-                //Vx[nn]=Vel*cos(Phi[nn]); Vy[nn]=Vel*sin(Phi[nn]);
+                nn=nearest(Px,Py,p);                
+                Gam[nn] *= (1+eps);                
                 if(Gam[nn] >= 1) {
                     p = nn; Gam[nn]=0;
                     if(p==1) {
                         phase = orderpar(Gam);
-                        //for(j=1;j<=S;j++) fprintf(out1,"%.5g %.5g %.5g ",Px[j],Vx[j],Gam[j]);
-                        //fprintf(out1,"%.5g %.5g ",Px[1],Py[1]);
                         fprintf(out1,"%.5g ",phase);
                         fprintf(out1,"\n");
                     }
