@@ -63,7 +63,7 @@ double Vel=0.1;
 
 int main(int argc,char **argv)
 {
-    int i,j,k,seed1=7,n=200,p,q,nn,fin=1;
+    int i,j,k,seed1=7,n=200,p,nn,fin=1;
     uint32 seed=5;
     double t,time=0,phase,zdum;
     /* neuron phase Gam, motion angle Phi */ 
@@ -105,11 +105,10 @@ int main(int argc,char **argv)
     } 
 
     for(i=1;i<=n;i++) {
-        fin=1; q=0;
+        fin=1;
         /* index of next firing unit p, time t */
         maxfind(&p,Gam); t = 1-Gam[p];
-        /* update position and velocities */
-        /* either next unit fires (q=1) or hits the wall (q=0) */
+        /* update position and velocities */        
         bhit(Px,Py,Vx,Vy,Gam,&t);
                 
         
