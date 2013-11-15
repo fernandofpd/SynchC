@@ -3,6 +3,8 @@
 /* random re-orientation at boundary */
 /* Verwendet Routinen aus Numerical Recipes */
 /* Ruediger Zillmer, May 2013 */
+/* Fernando Perez Diaz, November 2013 */
+
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
 #include <math.h>
@@ -47,7 +49,7 @@ double ranMT(void);
 int nearest(double *px,double *py,int k);
 double incremod(double r,double v,double D);
 double orderpar(double *Gam);
-int bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
+void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
 
 
 /* Parameter: */
@@ -108,32 +110,30 @@ int main(int argc,char **argv)
         maxfind(&p,Gam); t = 1-Gam[p];
         /* update position and velocities */
         /* either next unit fires (q=1) or hits the wall (q=0) */
-        q = bhit(Px,Py,Vx,Vy,Gam,&t);
+        bhit(Px,Py,Vx,Vy,Gam,&t);
                 
-        if(q>0) { 
-            /* when reference unit 1 fires print out order parameter */
-            if(p==1) {
-                phase = orderpar(Gam);
-                fprintf(out1,"%.5g ",phase);
-                fprintf(out1,"\n");
-            }
-            Gam[p]=0;
-            /* the loop for the case that firing triggers other firings */
-            while(fin > 0) {
-                nn=nearest(Px,Py,p);                
-                Gam[nn] *= (1+eps);                
-                if(Gam[nn] >= 1) {
-                    p = nn; Gam[nn]=0;
-                    if(p==1) {
-                        phase = orderpar(Gam);
-                        fprintf(out1,"%.5g ",phase);
-                        fprintf(out1,"\n");
-                    }
-                }
-                else fin=0;
-            }	
-
+        
+        /* when reference unit 1 fires print out order parameter */
+        if(p==1) {
+            phase = orderpar(Gam);
+            fprintf(out1,"%.5g ",phase);
+            fprintf(out1,"\n");
         }
+        Gam[p]=0;
+        /* the loop for the case that firing triggers other firings */
+        while(fin > 0) {
+            nn=nearest(Px,Py,p);                
+            Gam[nn] *= (1+eps);                
+            if(Gam[nn] >= 1) {
+                p = nn; Gam[nn]=0;
+                if(p==1) {
+                    phase = orderpar(Gam);
+                    fprintf(out1,"%.5g ",phase);
+                    fprintf(out1,"\n");
+                }
+            }
+            else fin=0;
+        }        
     } 
 
     fclose(out1);
@@ -277,50 +277,27 @@ double orderpar(double *Gam)
   return(p);
 }
 
-int bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t)
+void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t)
 {
-  int i,q=1,qi=1;
-  double tb=2,dum;
+  int i;
   
-  /* compute time for next boundary hit */
-  for(i=1;i<=S;i++) {
-    if(vx[i] > 0) dum = (L-x[i])/vx[i];
-    if(vx[i] < 0) dum = (-x[i])/vx[i];
-    if(vx[i] == 0) dum = 2;
-    if(dum < tb) {
-      tb = dum; q = i;
-    }
-  }
-  for(i=(S+1);i<=2*S;i++) {
-    if(vy[i-S] > 0) dum = (L-y[i-S])/vy[i-S];
-    if(vy[i-S] < 0) dum = (-y[i-S])/vy[i-S];
-    if(vy[i-S] == 0) dum = 2;
-    if(dum < tb) {
-      tb = dum; q = i;
-    }
-  }
-  /* boundary hit before next firing? */
-  if(tb <= *t) {
-    qi=0; *t=tb;
-  }
   /* update phases and positions */
   for(i=1;i<=S;i++) {
+	Gam[i] += (*t);
     x[i] += vx[i]*(*t); y[i] += vy[i]*(*t);
-    Gam[i] += (*t);
+	/* Periodical boundary conditions */
+	if(x[i] > L) {
+		x[i] -= L;
+	}
+	if(y[i] > L) {
+		y[i] -= L;
+	}
+	if(x[i] < 0) {
+		x[i] += L;
+	}
+	if(y[i] < 0) {
+		y[i] += L;
+	}    
   }
-  /* if wall is hit do random reflection */
-  /* distinguish x-wall (q <= S) and y-wall */
-  if(qi == 0) {
-    dum = Pi*ranMT();
-    if(q <= S) {
-      vx[q] = -(vx[q]>=0)*sin(dum)*Vel + (vx[q]<0)*sin(dum)*Vel;
-      vy[q] = Vel*cos(2*dum);
-    } 
-    else {
-      vy[q-S] = -(vy[q-S]>=0)*sin(dum)*Vel + (vy[q-S]<0)*sin(dum)*Vel;
-      vx[q-S] = Vel*cos(2*dum);
-    }
-  }
-    
-  return(qi);
+
 }
