@@ -50,7 +50,7 @@ int nearest(double *px,double *py,int k);
 double incremod(double r,double v,double D);
 double orderpar(double *Gam);
 void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
-
+void printOrderpar(FILE *output, double *Gam);
 
 /* Parameter: */
 double tau=1.;
@@ -110,14 +110,9 @@ int main(int argc,char **argv)
         maxfind(&p,Gam); t = 1-Gam[p];
         /* update position and velocities */        
         bhit(Px,Py,Vx,Vy,Gam,&t);
-                
-        
+
         /* when reference unit 1 fires print out order parameter */
-        if(p==1) {
-            phase = orderpar(Gam);
-            fprintf(out1,"%.5g ",phase);
-            fprintf(out1,"\n");
-        }
+        if(p==1) printOrderpar(out1, Gam);
         Gam[p]=0;
         /* the loop for the case that firing triggers other firings */
         while(fin > 0) {
@@ -125,11 +120,7 @@ int main(int argc,char **argv)
             Gam[nn] *= (1+eps);                
             if(Gam[nn] >= 1) {
                 p = nn; Gam[nn]=0;
-                if(p==1) {
-                    phase = orderpar(Gam);
-                    fprintf(out1,"%.5g ",phase);
-                    fprintf(out1,"\n");
-                }
+                if(p==1) printOrderpar(out1, Gam);
             }
             else fin=0;
         }        
@@ -299,4 +290,12 @@ void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t)
 	}    
   }
 
+}
+
+void printOrderpar(FILE *output, double *Gam)
+{
+	double phase;	
+	phase = orderpar(Gam);
+	fprintf(output,"%.5g ",phase);
+    fprintf(output,"\n");
 }
