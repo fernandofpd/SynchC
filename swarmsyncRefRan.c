@@ -17,8 +17,6 @@
 #include "randomd.h"
 #include "options.h"
 
-/*#define DIM 4*/
-/*#define NLYAP 2*/
 #define Pi         2.*asin(1.)
 
 /* ---------- parameter for random number generator -------------------- */
@@ -68,8 +66,7 @@ int main(int argc,char **argv)
     double t,time=0,phase,zdum;
     /* neuron phase Gam, motion angle Phi */ 
     /* xy-position Pxy, xy-velocity Vxy */
-    double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
-    int *P;    
+    double *Gam,*Phi,*Px,*Py,*Vx,*Vy;    
     FILE *out1;
 
     if(opt_flag(&argc,argv,"-h")) {
@@ -86,8 +83,7 @@ int main(int argc,char **argv)
     opt_double(&argc,argv,"-L",&L);
 
     out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
-    
-    P = ivector(1,S);
+        
     Gam = dvector(1,S);
     Phi = dvector(1,S);
     Px = dvector(1,S);
@@ -127,8 +123,7 @@ int main(int argc,char **argv)
     } 
 
     fclose(out1);
-
-    free_ivector(P,1,S);
+    
     free_dvector(Gam,1,S);
 
     return 0;
