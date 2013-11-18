@@ -76,6 +76,7 @@ int main(int argc,char **argv)
         exit(0);
     }
 
+	opt_int(&argc,argv,"-Q",&Q);
     opt_int(&argc,argv,"-n",&n);
     opt_int(&argc,argv,"-N",&S);
     opt_int(&argc,argv,"-s",&seed1);
