@@ -43,30 +43,32 @@ void sort(unsigned long n, double a[], int b[]);
 /* random number generator */
 void seedMT(uint32 seed);
 double ranMT(void);
-/* find nearest neighbor of unit k */
-int nearest(double *px,double *py,int k);
+/* find Q nearest neighbors of unit k */
+void Qnearest(double *px,double *py,int k, int Q, int *neigh);
 double incremod(double r,double v,double D);
 double orderpar(double *Gam);
 void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
 void printOrderpar(FILE *output, double *Gam);
+int compare(int *v1, int *v2);
 
 /* Parameter: */
 double tau=1.;
 double dphi=0.1;
 /* epsilon, unit number S, box size L, velocity Vel */
 double eps=0.1;
-int S=20;
+const int S=20;
 double L=400;
 double Vel=0.1;
 
 int main(int argc,char **argv)
 {
-    int i,j,k,seed1=7,n=200,p,nn,fin=1;
+    int i,j,k,seed1=7,n=200,p,nn,Q=1,fin=1;
     uint32 seed=5;
     double t,time=0,phase,zdum;
     /* neuron phase Gam, motion angle Phi */ 
     /* xy-position Pxy, xy-velocity Vxy */
-    double *Gam,*Phi,*Px,*Py,*Vx,*Vy;    
+    double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
+	int *firing, *fired, *updated, *neigh;
     FILE *out1;
 
     if(opt_flag(&argc,argv,"-h")) {
@@ -91,6 +93,11 @@ int main(int argc,char **argv)
     Vx = dvector(1,S);
     Vy = dvector(1,S);
 
+	firing = ivector(1,S);
+	fired = ivector(1,S);
+	updated = ivector(1,S);
+	neigh = ivector(1,Q);
+
     /* initialize random numbers */
     seed=(uint32)(seed1); seedMT(seed);
     /* random initial values */
@@ -101,24 +108,48 @@ int main(int argc,char **argv)
     } 
 
     for(i=1;i<=n;i++) {
+		/* initialize to zero */
+		for(j=1;j<=S;j++) {
+			firing[j] = 0;
+			fired[j] = 0;
+			updated[j] = 0;
+		}		
+
         fin=1;
         /* index of next firing unit p, time t */
         maxfind(&p,Gam); t = 1-Gam[p];
-        /* update position and velocities */        
+        /* update position and velocities */
         bhit(Px,Py,Vx,Vy,Gam,&t);
 
         /* when reference unit 1 fires print out order parameter */
         if(p==1) printOrderpar(out1, Gam);
         Gam[p]=0;
+		firing[p] = 1;
+		updated[p] = 1;
+
         /* the loop for the case that firing triggers other firings */
         while(fin > 0) {
-            nn=nearest(Px,Py,p);                
-            Gam[nn] *= (1+eps);                
-            if(Gam[nn] >= 1) {
-                p = nn; Gam[nn]=0;
-                if(p==1) printOrderpar(out1, Gam);
-            }
-            else fin=0;
+			for(j=1;j<=S;j++) {
+				if(firing[j] == 1 && fired[j] == 0) {
+					fired[j] = 1;
+					Qnearest(Px,Py,j,Q,neigh);
+					for(k=1;k<=Q;k++){
+						nn = neigh[k];
+						if(updated[nn] == 0) {
+							Gam[nn] *= (1+eps);
+							if(Gam[nn] >= 1) {
+								firing[nn] = 1;
+								Gam[nn]=0;
+								if(p==1) printOrderpar(out1, Gam);
+							}
+						}
+					}
+				}
+			}
+
+			if(compare(firing,fired)) {
+				fin=0;
+			}
         }        
     } 
 
@@ -210,35 +241,46 @@ double ranMT(void)
   return (double) randomMT()/NORM;
 }
 
-int nearest(double *px,double *py,int k)
-{
-  int nn=1,i,j;
-  double dum=sqrt(2)*L,dum1;
-  double dis[9];
-  
-  for(i=1;i<=S;i++) {
-    if(i==k) continue;
-    dis[0]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]-py[k])*(py[i]-py[k]));
-    dis[1]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
-    dis[2]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
-    dis[3]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]-py[k])*(py[i]-py[k]));
-    dis[4]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
-    dis[5]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
-    dis[6]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]-py[k])*(py[i]-py[k]));
-    dis[7]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
-    dis[8]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
-    dum1=dis[0]; 
-    for(j=1;j<9;j++) {
-      if(dis[j] < dum1) dum1 = dis[j];
-    }
+void Qnearest(double *px,double *py,int k, int Q, int *neigh) {
+	int i,j, foo;
+	double dum=sqrt(2)*L,dum1;
+	double dis[9];
+	double *dis2all;
+	dis2all = dvector(1,S);
+	dis2all[k] = dum;
 
+	/* Calculate distances to all other oscillators */
+	for(i=1;i<=S;i++) {
+		if(i==k) continue;
+		/* Take into account the periodic boundary conditions */
+		dis[0]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]-py[k])*(py[i]-py[k]));
+		dis[1]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
+		dis[2]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
+		dis[3]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]-py[k])*(py[i]-py[k]));
+		dis[4]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
+		dis[5]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
+		dis[6]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]-py[k])*(py[i]-py[k]));
+		dis[7]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
+		dis[8]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
+		dum1=dis[0]; 
+		for(j=1;j<9;j++) {
+			if(dis[j] < dum1) dum1 = dis[j];
+		}
+		dis2all[i] = dum1;
+	}
 
-    if(dum1 < dum) {
-      nn=i; dum=dum1;
-    }
-  }
-  
-  return(nn);
+	/* Find Q nearest neighbors */
+	for(i=1;i<=Q;i++) {
+		dum1 = dum;
+		for(j=1;j<=S;j++) {
+			if(dis2all[j] < dum1) {
+				foo = j;
+				dum1 = dis2all[j];
+			}
+		}
+		dis2all[foo] = dum;
+		neigh[i] = foo;
+	}
 }
 
 double incremod(double r,double v,double D)
@@ -293,4 +335,17 @@ void printOrderpar(FILE *output, double *Gam)
 	phase = orderpar(Gam);
 	fprintf(output,"%.5g ",phase);
     fprintf(output,"\n");
+}
+
+int compare(int *v1, int *v2) {
+	int i,comp = 1;
+	int a;
+	for(i=1;i<=S;i++){
+		comp *= (int) (v1[i] == v2[i]);		
+		if(comp == 0) break;
+		//printf("%d - %d \n",v1[i],v2[i]);
+	}
+//	printf("Comp = %d",comp);
+//	scanf("%s", &a);
+	return(comp);
 }
