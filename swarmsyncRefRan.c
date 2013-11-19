@@ -1,9 +1,9 @@
 /* swarmsyncRefRan.c - double precision */
 /* unit free */
 /* random re-orientation at boundary */
+/* interaction with neurons in cone */
 /* Verwendet Routinen aus Numerical Recipes */
 /* Ruediger Zillmer, May 2013 */
-/* Fernando Perez Diaz, November 2013 */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
@@ -17,6 +17,8 @@
 #include "randomd.h"
 #include "options.h"
 
+/*#define DIM 4*/
+/*#define NLYAP 2*/
 #define Pi         2.*asin(1.)
 
 /* ---------- parameter for random number generator -------------------- */
@@ -43,12 +45,12 @@ void sort(unsigned long n, double a[], int b[]);
 /* random number generator */
 void seedMT(uint32 seed);
 double ranMT(void);
-/* find nearest neighbor of unit k */
-int nearest(double *px,double *py,int k);
-double incremod(double r,double v,double D);
+/* euclid dist p k */
+double edist(double *px,double *py,int p,int k);
+double cangle(double *px,double *py,double *vx,double *vy,int p,int k);
 double orderpar(double *Gam);
-void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
-void printOrderpar(FILE *output, double *Gam);
+int bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
+
 
 /* Parameter: */
 double tau=1.;
@@ -58,75 +60,115 @@ double eps=0.1;
 int S=20;
 double L=400;
 double Vel=0.1;
+double smin=1.e-6;
 
 int main(int argc,char **argv)
 {
-    int i,j,k,seed1=7,n=200,p,nn,fin=1;
-    uint32 seed=5;
-    double t,time=0,phase,zdum;
-    /* neuron phase Gam, motion angle Phi */ 
-    /* xy-position Pxy, xy-velocity Vxy */
-    double *Gam,*Phi,*Px,*Py,*Vx,*Vy;    
-    FILE *out1;
+  int i,j,k,seed1=7,n=200,p,q;
+  int R=1;
+  uint32 seed=5;
+  double t,phase,cphi,dpos,zdum=1,time=0;
+  double dposm,cphim;
+  /* neuron phase Gam, motion angle Phi */ 
+  /* xy-position Pxy, xy-velocity Vxy */
+  double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
+  int *P,*Stime;
+  FILE *out1;
 
-    if(opt_flag(&argc,argv,"-h")) {
-        printf("\nOptions: -n\n\n");
-        exit(0);
+  if(opt_flag(&argc,argv,"-h")) {
+    printf("\nOptions: -n\n\n");
+    exit(0);
+  }
+
+  /*sprintf(file1,"map");
+  opt_string(&argc,argv,"-o",file1);
+  strcat(file1,".tim");
+
+  opt_save(&argc,argv,file1,"w"); */
+
+  opt_int(&argc,argv,"-n",&n);
+  opt_int(&argc,argv,"-N",&S);
+  opt_int(&argc,argv,"-s",&seed1);
+  opt_double(&argc,argv,"-dp",&dphi);
+  opt_double(&argc,argv,"-V",&Vel);
+  opt_double(&argc,argv,"-e",&eps);
+  opt_double(&argc,argv,"-L",&L);
+  opt_int(&argc,argv,"-R",&R);
+  
+  /* scale max separation and define max angle */
+  dposm=2*L/sqrt(S);
+  cphim=cos(3.1416/10);
+  
+  out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
+
+  /*TT = ivector(1,S);*/
+  P = ivector(1,S);
+  Gam = dvector(1,S);
+  Phi = dvector(1,S);
+  Px = dvector(1,S);
+  Py = dvector(1,S);
+  Vx = dvector(1,S);
+  Vy = dvector(1,S);
+  Stime = ivector(1,R);
+  
+  /* initialize random numbers */
+  seed=(uint32)(seed1); seedMT(seed);
+  
+  for(k=1;k<=R;k++) {
+    zdum=1; time=0;
+  
+  /* random initial values */
+  for(i=1;i<=S;i++) {
+    Gam[i]=ranMT(); Phi[i]=2*Pi*ranMT();
+    Px[i]=L*ranMT(); Py[i]=L*ranMT();
+    Vx[i]=Vel*cos(Phi[i]); Vy[i]=Vel*sin(Phi[i]);
+  } 
+  
+  /*for(i=1;i<=n;i++) {*/
+  while(zdum > smin) {
+    q=0;
+    /* index of next firing unit p, time t */
+    maxfind(&p,Gam); t = 1-Gam[p];
+    /* update position and velocities */
+    /* either next unit fires (q=1) or hits the wall (q=0) */
+    q = bhit(Px,Py,Vx,Vy,Gam,&t);
+            
+    if(q>0) { 
+      /* when reference unit 1 fires print out order parameter */
+      if(p==1) {
+        phase = orderpar(Gam);
+	zdum = 1-phase; time++;
+        //for(j=1;j<=S;j++) fprintf(out1,"%.5g %.5g %.5g ",Px[j],Vx[j],Gam[j]);
+        //fprintf(out1,"%.5g %.5g ",Px[1],Py[1]);
+        //fprintf(out1,"%.5g ",phase);
+        //fprintf(out1,"\n");
+      }
+      Gam[p]=0;
+      
+      for(j=1;j<=S;j++){
+        if(j==p) continue;
+        dpos=edist(Px,Py,p,j);
+	if(dpos <= dposm){
+	  cphi=cangle(Px,Py,Vx,Vy,p,j);
+	  if(cphi >= cphim) {
+	    Gam[j] *= (1+eps);
+            if(Gam[j] >= 1) Gam[j] = 1;
+          }
+      	}
+      }
     }
+  }
+  Stime[k] = time;
+  }
+  
+  for(i=1;i<=R;i++) fprintf(out1,"%d\n",Stime[i]); 
+  
+  fclose(out1);
+  
+  free_ivector(P,1,S);
+  free_dvector(Gam,1,S);
 
-    opt_int(&argc,argv,"-n",&n);
-    opt_int(&argc,argv,"-N",&S);
-    opt_int(&argc,argv,"-s",&seed1);
-    opt_double(&argc,argv,"-dp",&dphi);
-    opt_double(&argc,argv,"-V",&Vel);
-    opt_double(&argc,argv,"-e",&eps);
-    opt_double(&argc,argv,"-L",&L);
-
-    out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
-        
-    Gam = dvector(1,S);
-    Phi = dvector(1,S);
-    Px = dvector(1,S);
-    Py = dvector(1,S);
-    Vx = dvector(1,S);
-    Vy = dvector(1,S);
-
-    /* initialize random numbers */
-    seed=(uint32)(seed1); seedMT(seed);
-    /* random initial values */
-    for(i=1;i<=S;i++) {
-        Gam[i]=ranMT(); Phi[i]=2*Pi*ranMT();
-        Px[i]=L*ranMT(); Py[i]=L*ranMT();
-        Vx[i]=Vel*cos(Phi[i]); Vy[i]=Vel*sin(Phi[i]);
-    } 
-
-    for(i=1;i<=n;i++) {
-        fin=1;
-        /* index of next firing unit p, time t */
-        maxfind(&p,Gam); t = 1-Gam[p];
-        /* update position and velocities */        
-        bhit(Px,Py,Vx,Vy,Gam,&t);
-
-        /* when reference unit 1 fires print out order parameter */
-        if(p==1) printOrderpar(out1, Gam);
-        Gam[p]=0;
-        /* the loop for the case that firing triggers other firings */
-        while(fin > 0) {
-            nn=nearest(Px,Py,p);                
-            Gam[nn] *= (1+eps);                
-            if(Gam[nn] >= 1) {
-                p = nn; Gam[nn]=0;
-                if(p==1) printOrderpar(out1, Gam);
-            }
-            else fin=0;
-        }        
-    } 
-
-    fclose(out1);
-    
-    free_dvector(Gam,1,S);
-
-    return 0;
+  return 0;
 }
 
 void maxfind(int *p,double *Gam)
@@ -210,43 +252,24 @@ double ranMT(void)
   return (double) randomMT()/NORM;
 }
 
-int nearest(double *px,double *py,int k)
+double edist(double *px,double *py,int p,int k)
 {
-  int nn=1,i,j;
-  double dum=sqrt(2)*L,dum1;
-  double dis[9];
+  double dis;
   
-  for(i=1;i<=S;i++) {
-    if(i==k) continue;
-    dis[0]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]-py[k])*(py[i]-py[k]));
-    dis[1]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
-    dis[2]=sqrt((px[i]-px[k])*(px[i]-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
-    dis[3]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]-py[k])*(py[i]-py[k]));
-    dis[4]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
-    dis[5]=sqrt((px[i]-L-px[k])*(px[i]-L-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
-    dis[6]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]-py[k])*(py[i]-py[k]));
-    dis[7]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]-L-py[k])*(py[i]-L-py[k]));
-    dis[8]=sqrt((px[i]+L-px[k])*(px[i]+L-px[k])+(py[i]+L-py[k])*(py[i]+L-py[k]));
-    dum1=dis[0]; 
-    for(j=1;j<9;j++) {
-      if(dis[j] < dum1) dum1 = dis[j];
-    }
-
-
-    if(dum1 < dum) {
-      nn=i; dum=dum1;
-    }
-  }
+  dis=sqrt((px[p]-px[k])*(px[p]-px[k])+(py[p]-py[k])*(py[p]-py[k]));
   
-  return(nn);
+  return(dis);
 }
 
-double incremod(double r,double v,double D)
+double cangle(double *px,double *py,double *vx,double *vy,int p,int k)
 {
-  r += v;
-  if(r>0) r = fmod(r,D);
-  else r = D - fmod(abs(r),D);
-  return(r);
+  double dis;
+  
+  dis = sqrt((px[p]-px[k])*(px[p]-px[k])+(py[p]-py[k])*(py[p]-py[k]));
+  /* use scalar product between vel(p) and pos(k)-pos(p) */
+  dis = (vx[p]*(px[k]-px[p])+vy[p]*(py[k]-py[p]))/(Vel*dis);
+  
+  return(dis);
 }
 
 double orderpar(double *Gam)
@@ -262,35 +285,50 @@ double orderpar(double *Gam)
   return(p);
 }
 
-void bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t)
+int bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t)
 {
-  int i;
+  int i,q=1,qi=1;
+  double tb=2,dum;
   
+  /* compute time for next boundary hit */
+  for(i=1;i<=S;i++) {
+    if(vx[i] > 0) dum = (L-x[i])/vx[i];
+    if(vx[i] < 0) dum = (-x[i])/vx[i];
+    if(vx[i] == 0) dum = 2;
+    if(dum < tb) {
+      tb = dum; q = i;
+    }
+  }
+  for(i=(S+1);i<=2*S;i++) {
+    if(vy[i-S] > 0) dum = (L-y[i-S])/vy[i-S];
+    if(vy[i-S] < 0) dum = (-y[i-S])/vy[i-S];
+    if(vy[i-S] == 0) dum = 2;
+    if(dum < tb) {
+      tb = dum; q = i;
+    }
+  }
+  /* boundary hit before next firing? */
+  if(tb <= *t) {
+    qi=0; *t=tb;
+  }
   /* update phases and positions */
   for(i=1;i<=S;i++) {
-	Gam[i] += (*t);
     x[i] += vx[i]*(*t); y[i] += vy[i]*(*t);
-	/* Periodical boundary conditions */
-	if(x[i] > L) {
-		x[i] -= L;
-	}
-	if(y[i] > L) {
-		y[i] -= L;
-	}
-	if(x[i] < 0) {
-		x[i] += L;
-	}
-	if(y[i] < 0) {
-		y[i] += L;
-	}    
+    Gam[i] += (*t);
   }
-
-}
-
-void printOrderpar(FILE *output, double *Gam)
-{
-	double phase;	
-	phase = orderpar(Gam);
-	fprintf(output,"%.5g ",phase);
-    fprintf(output,"\n");
+  /* if wall is hit do random reflection */
+  /* distinguish x-wall (q <= S) and y-wall */
+  if(qi == 0) {
+    dum = Pi*ranMT();
+    if(q <= S) {
+      vx[q] = -(vx[q]>=0)*sin(dum)*Vel + (vx[q]<0)*sin(dum)*Vel;
+      vy[q] = Vel*cos(2*dum);
+    } 
+    else {
+      vy[q-S] = -(vy[q-S]>=0)*sin(dum)*Vel + (vy[q-S]<0)*sin(dum)*Vel;
+      vx[q-S] = Vel*cos(2*dum);
+    }
+  }
+    
+  return(qi);
 }
