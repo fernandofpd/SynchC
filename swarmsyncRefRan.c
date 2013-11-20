@@ -64,112 +64,102 @@ double smin=1.e-6;
 
 int main(int argc,char **argv)
 {
-  int i,j,k,seed1=7,n=200,p,q;
-  int R=1;
-  uint32 seed=5;
-  double t,phase,cphi,dpos,zdum=1,time=0;
-  double dposm,cphim,alpha=18;
-  /* neuron phase Gam, motion angle Phi */ 
-  /* xy-position Pxy, xy-velocity Vxy */
-  double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
-  int *P,*Stime;
-  FILE *out1;
+	int i,j,k,seed1=7,n=200,p,q;
+	int R=1;
+	uint32 seed=5;
+	double t,phase,cphi,dpos,zdum=1,time=0;
+	double dposm,cphim,alpha=18;
+	/* neuron phase Gam, motion angle Phi */ 
+	/* xy-position Pxy, xy-velocity Vxy */
+	double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
+	int *P,*Stime;
+	FILE *out1;
 
-  if(opt_flag(&argc,argv,"-h")) {
-    printf("\nOptions: -n\n\n");
-    exit(0);
-  }
+	if(opt_flag(&argc,argv,"-h")) {
+		printf("\nOptions: -n\n\n");
+		exit(0);
+	}
 
-  /*sprintf(file1,"map");
-  opt_string(&argc,argv,"-o",file1);
-  strcat(file1,".tim");
+	opt_int(&argc,argv,"-n",&n);
+	opt_int(&argc,argv,"-N",&S);
+	opt_int(&argc,argv,"-s",&seed1);
+	opt_double(&argc,argv,"-dp",&dphi);
+	opt_double(&argc,argv,"-V",&Vel);
+	opt_double(&argc,argv,"-e",&eps);
+	opt_double(&argc,argv,"-L",&L);
+	opt_double(&argc,argv,"-a",&alpha);
+	opt_int(&argc,argv,"-R",&R);
+  
+	/* scale max separation and define max angle */
+	dposm=2*L/sqrt(S);
+	cphim=cos(3.1416/180*alpha);
+  
+	out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
 
-  opt_save(&argc,argv,file1,"w"); */
-
-  opt_int(&argc,argv,"-n",&n);
-  opt_int(&argc,argv,"-N",&S);
-  opt_int(&argc,argv,"-s",&seed1);
-  opt_double(&argc,argv,"-dp",&dphi);
-  opt_double(&argc,argv,"-V",&Vel);
-  opt_double(&argc,argv,"-e",&eps);
-  opt_double(&argc,argv,"-L",&L);
-  opt_double(&argc,argv,"-a",&alpha);
-  opt_int(&argc,argv,"-R",&R);
+	/*TT = ivector(1,S);*/
+	P = ivector(1,S);
+	Gam = dvector(1,S);
+	Phi = dvector(1,S);
+	Px = dvector(1,S);
+	Py = dvector(1,S);
+	Vx = dvector(1,S);
+	Vy = dvector(1,S);
+	Stime = ivector(1,R);
   
-  /* scale max separation and define max angle */
-  dposm=2*L/sqrt(S);
-  cphim=cos(3.1416/180*alpha);
+	/* initialize random numbers */
+	seed=(uint32)(seed1); seedMT(seed);
   
-  out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
-
-  /*TT = ivector(1,S);*/
-  P = ivector(1,S);
-  Gam = dvector(1,S);
-  Phi = dvector(1,S);
-  Px = dvector(1,S);
-  Py = dvector(1,S);
-  Vx = dvector(1,S);
-  Vy = dvector(1,S);
-  Stime = ivector(1,R);
+	for(k=1;k<=R;k++) {
+		zdum=1; time=0;
   
-  /* initialize random numbers */
-  seed=(uint32)(seed1); seedMT(seed);
+		/* random initial values */
+		for(i=1;i<=S;i++) {
+			Gam[i]=ranMT(); Phi[i]=2*Pi*ranMT();
+			Px[i]=L*ranMT(); Py[i]=L*ranMT();
+			Vx[i]=Vel*cos(Phi[i]); Vy[i]=Vel*sin(Phi[i]);
+		} 
   
-  for(k=1;k<=R;k++) {
-    zdum=1; time=0;
-  
-  /* random initial values */
-  for(i=1;i<=S;i++) {
-    Gam[i]=ranMT(); Phi[i]=2*Pi*ranMT();
-    Px[i]=L*ranMT(); Py[i]=L*ranMT();
-    Vx[i]=Vel*cos(Phi[i]); Vy[i]=Vel*sin(Phi[i]);
-  } 
-  
-  /*for(i=1;i<=n;i++) {*/
-  while(zdum > smin) {
-    q=0;
-    /* index of next firing unit p, time t */
-    maxfind(&p,Gam); t = 1-Gam[p];
-    /* update position and velocities */
-    /* either next unit fires (q=1) or hits the wall (q=0) */
-    q = bhit(Px,Py,Vx,Vy,Gam,&t);
+		/*for(i=1;i<=n;i++) {*/
+		while(zdum > smin) {
+			q=0;
+			/* index of next firing unit p, time t */
+			maxfind(&p,Gam); t = 1-Gam[p];
+			/* update position and velocities */
+			/* either next unit fires (q=1) or hits the wall (q=0) */
+			q = bhit(Px,Py,Vx,Vy,Gam,&t);
             
-    if(q>0) { 
-      /* when reference unit 1 fires print out order parameter */
-      if(p==1) {
-        phase = orderpar(Gam);
-	zdum = 1-phase; time++;
-        //for(j=1;j<=S;j++) fprintf(out1,"%.5g %.5g %.5g ",Px[j],Vx[j],Gam[j]);
-        //fprintf(out1,"%.5g %.5g ",Px[1],Py[1]);
-        //fprintf(out1,"%.5g ",phase);
-        //fprintf(out1,"\n");
-      }
-      Gam[p]=0;
+			if(q>0) { 
+			/* when reference unit 1 fires print out order parameter */
+			if(p==1) {
+				phase = orderpar(Gam);
+				zdum = 1-phase; time++;
+			}
+			Gam[p]=0;
       
-      for(j=1;j<=S;j++){
-        if(j==p) continue;
-        dpos=edist(Px,Py,p,j);
-	if(dpos <= dposm){
-	  cphi=cangle(Px,Py,Vx,Vy,p,j);
-	  if(cphi >= cphim) {
-	    Gam[j] *= (1+eps);
-            if(Gam[j] >= 1) Gam[j] = 1;
-          }
-      	}
-      }
-    }
-  }
-  Stime[k] = time;
-  }
+			for(j=1;j<=S;j++){
+				if(j==p) continue;
+					dpos=edist(Px,Py,p,j);
+					if(dpos <= dposm){
+						cphi=cangle(Px,Py,Vx,Vy,p,j);
+						if(cphi >= cphim) {
+							Gam[j] *= (1+eps);
+							if(Gam[j] >= 1) Gam[j] = 1;
+						}
+					}
+				}
+			}
+		}
+		Stime[k] = time;
+	}
   
-  for(i=1;i<=R;i++) fprintf(out1,"%d\n",Stime[i]); 
+	for(i=1;i<=R;i++) fprintf(out1,"%d\n",Stime[i]); 
   
-  fclose(out1);
+	fclose(out1);
   
-  free_ivector(P,1,S);
-  free_dvector(Gam,1,S);
+	free_ivector(P,1,S);
+	free_dvector(Gam,1,S);
 
-  return 0;
+	return 0;
 }
 
 void maxfind(int *p,double *Gam)
