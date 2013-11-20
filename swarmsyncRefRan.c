@@ -68,7 +68,7 @@ int main(int argc,char **argv)
   int R=1;
   uint32 seed=5;
   double t,phase,cphi,dpos,zdum=1,time=0;
-  double dposm,cphim;
+  double dposm,cphim,alpha=18;
   /* neuron phase Gam, motion angle Phi */ 
   /* xy-position Pxy, xy-velocity Vxy */
   double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
@@ -93,11 +93,12 @@ int main(int argc,char **argv)
   opt_double(&argc,argv,"-V",&Vel);
   opt_double(&argc,argv,"-e",&eps);
   opt_double(&argc,argv,"-L",&L);
+  opt_double(&argc,argv,"-a",&alpha);
   opt_int(&argc,argv,"-R",&R);
   
   /* scale max separation and define max angle */
   dposm=2*L/sqrt(S);
-  cphim=cos(3.1416/10);
+  cphim=cos(3.1416/180*alpha);
   
   out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
 
