@@ -74,6 +74,7 @@ int main(int argc,char **argv)
 	double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
 	int *P,*Stime;
 	FILE *out1;
+	char filename[128]="dat";
 
 	if(opt_flag(&argc,argv,"-h")) {
 		printf("\nOptions: -n\n\n");
@@ -89,12 +90,13 @@ int main(int argc,char **argv)
 	opt_double(&argc,argv,"-L",&L);
 	opt_double(&argc,argv,"-a",&alpha);
 	opt_int(&argc,argv,"-R",&R);
+	opt_string(&argc,argv,"-f",filename);	
   
 	/* scale max separation and define max angle */
 	dposm=2*L/sqrt(S);
 	cphim=cos(3.1416/180*alpha);
   
-	out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
+	out1=fopen(filename,"w"); fclose(out1); out1=fopen(filename,"a");
 
 	/*TT = ivector(1,S);*/
 	P = ivector(1,S);
