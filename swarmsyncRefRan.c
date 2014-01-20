@@ -56,7 +56,7 @@ double tau=1.;
 double dphi=0.1;
 /* epsilon, unit number S, box size L, velocity Vel */
 double eps=0.1;
-const int S=20;
+int S=20;
 double L=400;
 double Vel=0.1;
 
