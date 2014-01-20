@@ -70,6 +70,7 @@ int main(int argc,char **argv)
     double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
 	int *firing, *fired, *updated, *neigh;
     FILE *out1;
+	char filename[128]="dat";
 
     if(opt_flag(&argc,argv,"-h")) {
         printf("\nOptions: -n\n\n");
@@ -84,8 +85,9 @@ int main(int argc,char **argv)
     opt_double(&argc,argv,"-V",&Vel);
     opt_double(&argc,argv,"-e",&eps);
     opt_double(&argc,argv,"-L",&L);
+	opt_string(&argc,argv,"-f",filename); 
 
-    out1=fopen("dat","w"); fclose(out1); out1=fopen("dat","a");
+    out1=fopen(filename,"w"); fclose(out1); out1=fopen(filename,"a");
         
     Gam = dvector(1,S);
     Phi = dvector(1,S);
