@@ -59,103 +59,84 @@ double eps=0.1;
 int S=20;
 double L=400;
 double Vel=0.1;
+double smin=1.e-6;
 
 int main(int argc,char **argv)
 {
-    int i,j,k,seed1=7,n=200,p,nn,Q=1,fin=1;
-    uint32 seed=5;
-    double t,time=0,phase,zdum;
-    /* neuron phase Gam, motion angle Phi */ 
-    /* xy-position Pxy, xy-velocity Vxy */
-    double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
-	int *firing, *fired, *updated, *neigh;
-    FILE *out1;
+	int i,j,k,seed1=7,n=200,p,nn,Q=1,R=1,time=0;
+	uint32 seed=5;
+	double t,phase,zdum;
+	/* neuron phase Gam, motion angle Phi */
+	/* xy-position Pxy, xy-velocity Vxy */
+	double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
+	int *neigh, *Stime;
+	FILE *out1;
 	char filename[128]="dat";
 
-    if(opt_flag(&argc,argv,"-h")) {
-        printf("\nOptions: -n\n\n");
-        exit(0);
-    }
+	if(opt_flag(&argc,argv,"-h")) {
+		printf("\nOptions: -n\n\n");
+		exit(0);
+	}
 
 	opt_int(&argc,argv,"-Q",&Q);
-    opt_int(&argc,argv,"-n",&n);
-    opt_int(&argc,argv,"-N",&S);
-    opt_int(&argc,argv,"-s",&seed1);
-    opt_double(&argc,argv,"-dp",&dphi);
-    opt_double(&argc,argv,"-V",&Vel);
-    opt_double(&argc,argv,"-e",&eps);
-    opt_double(&argc,argv,"-L",&L);
-	opt_string(&argc,argv,"-f",filename); 
+	opt_int(&argc,argv,"-n",&n);
+	opt_int(&argc,argv,"-N",&S);
+	opt_int(&argc,argv,"-s",&seed1);
+	opt_double(&argc,argv,"-dp",&dphi);
+	opt_double(&argc,argv,"-V",&Vel);
+	opt_double(&argc,argv,"-e",&eps);
+	opt_double(&argc,argv,"-L",&L);
+	opt_int(&argc,argv,"-R",&R);
+	opt_string(&argc,argv,"-f",filename);
 
-    out1=fopen(filename,"w"); fclose(out1); out1=fopen(filename,"a");
+	out1=fopen(filename,"w"); fclose(out1); out1=fopen(filename,"a");
         
-    Gam = dvector(1,S);
-    Phi = dvector(1,S);
-    Px = dvector(1,S);
-    Py = dvector(1,S);
-    Vx = dvector(1,S);
-    Vy = dvector(1,S);
-
-	firing = ivector(1,S);
-	fired = ivector(1,S);
-	updated = ivector(1,S);
+	Gam = dvector(1,S);
+	Phi = dvector(1,S);
+	Px = dvector(1,S);
+	Py = dvector(1,S);
+	Vx = dvector(1,S);
+	Vy = dvector(1,S);
+	Stime = ivector(1,R);
 	neigh = ivector(1,Q);
 
     /* initialize random numbers */
     seed=(uint32)(seed1); seedMT(seed);
-    /* random initial values */
-    for(i=1;i<=S;i++) {
-        Gam[i]=ranMT(); Phi[i]=2*Pi*ranMT();
-        Px[i]=L*ranMT(); Py[i]=L*ranMT();
-        Vx[i]=Vel*cos(Phi[i]); Vy[i]=Vel*sin(Phi[i]);
-    } 
+	
+	for(j=1;j<=R;j++) {
+		zdum=1; time=0;
 
-    for(i=1;i<=n;i++) {
-		/* initialize to zero */
-		for(j=1;j<=S;j++) {
-			firing[j] = 0;
-			fired[j] = 0;
-			updated[j] = 0;
-		}		
+		/* random initial values */
+		for(i=1;i<=S;i++) {
+			Gam[i]=ranMT(); Phi[i]=2*Pi*ranMT();
+			Px[i]=L*ranMT(); Py[i]=L*ranMT();
+			Vx[i]=Vel*cos(Phi[i]); Vy[i]=Vel*sin(Phi[i]);
+		} 
 
-        fin=1;
-        /* index of next firing unit p, time t */
-        maxfind(&p,Gam); t = 1-Gam[p];
-        /* update position and velocities */
-        bhit(Px,Py,Vx,Vy,Gam,&t);
+		while(zdum > smin) {
+			/* index of next firing unit p, time t */
+			maxfind(&p,Gam); t = 1-Gam[p];
+			/* update position and velocities */
+			bhit(Px,Py,Vx,Vy,Gam,&t);
 
-        /* when reference unit 1 fires print out order parameter */
-        if(p==1) printOrderpar(out1, Gam);
-        Gam[p]=0;
-		firing[p] = 1;
-		updated[p] = 1;
-
-        /* the loop for the case that firing triggers other firings */
-        while(fin > 0) {
-			for(j=1;j<=S;j++) {
-				if(firing[j] == 1 && fired[j] == 0) {
-					fired[j] = 1;
-					Qnearest(Px,Py,j,Q,neigh);
-					for(k=1;k<=Q;k++){
-						nn = neigh[k];
-						if(updated[nn] == 0) {
-							Gam[nn] *= (1+eps);
-							if(Gam[nn] >= 1) {
-								firing[nn] = 1;
-								Gam[nn]=0;
-								if(p==1) printOrderpar(out1, Gam);
-							}
-						}
-					}
-				}
+			/* when reference unit 1 fires find out order parameter */
+			if(p==1) {
+				phase = orderpar(Gam);
+				zdum = 1-phase;
+				time++;
 			}
+			Gam[p]=0;
 
-			if(compare(firing,fired)) {
-				fin=0;
-			}
-        }        
-    } 
-
+			Qnearest(Px,Py,p,Q,neigh);
+			for(k=1;k<=Q;k++){
+				nn = neigh[k];
+				Gam[nn] *= (1+eps);
+				if(Gam[nn] >= 1) Gam[nn]=1;
+			}       
+		}
+		Stime[j] = time;		
+	}
+	for(i=1;i<=R;i++) fprintf(out1,"%d\n",Stime[i]);
     fclose(out1);
     
     free_dvector(Gam,1,S);
