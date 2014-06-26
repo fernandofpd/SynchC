@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
+#include <limits.h>
 
 #include "nrutil.h"
 #include "vecmatd.h"
@@ -56,6 +57,7 @@ int S = 20;
 double L = 400;
 double Vel = 0.1;
 double smin = 1.e-6;
+int maxT = 100000;
 
 int main(int argc,char **argv)
 {
@@ -67,7 +69,8 @@ int main(int argc,char **argv)
     double *Gam, *Phi, *Px, *Py, *Vx, *Vy;
     int *neigh, *Stime;
     FILE *out1;
-    char filename[128] = "dat";   
+    char filename[128] = "dat";
+    if(INT_MAX < maxT) maxT = INT_MAX -1;
 
     /* Input parameters */
     opt_int(&argc, argv, "-Q", &Q);
@@ -105,7 +108,7 @@ int main(int argc,char **argv)
             Vx[i] = Vel*cos(Phi[i]); Vy[i] = Vel*sin(Phi[i]);
         } 
 
-        while(zdum > smin) {
+        while(zdum > smin && time < maxT) {
             /* index of next firing unit p, time t */
             maxfind(&p, Gam); t = 1-Gam[p];
             /* update position and velocities */
@@ -129,7 +132,7 @@ int main(int argc,char **argv)
         Stime[j] = time;
     }
     /* Save results to file */
-    for(i = 1; i <= R; i++) fprintf(out1, "%d\n", Stime[i]);    
+    for(i = 1; i <= R; i++) fprintf(out1, "%d\n", Stime[i]);
     
     /* Free memory */
     fclose(out1);
