@@ -142,7 +142,7 @@ int main(int argc,char **argv)
 				if(j==p) continue;
 					dpos=edist(Px,Py,p,j);
 					if(dpos <= dposm){
-						cphi=cangle(Px,Py,Vx,Vy,p,j);
+						cphi=pangle(Px,Py,Vx,Vy,j,p);
 						if(cphi >= cphim) {
 							Gam[j] *= (1+eps);
 							if(Gam[j] >= 1) Gam[j] = 1;
