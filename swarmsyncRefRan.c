@@ -1,9 +1,4 @@
 /* swarmsyncRefRan.c - double precision */
-/* unit free */
-/* periodic boundary conditions */
-/* Using routines Numerical Recipes */
-/* Ruediger Zillmer, May 2013 */
-/* Fernando Perez Diaz, June 2014 */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
