@@ -1,9 +1,4 @@
 /* swarmsyncRefRan.c - double precision */
-/* unit free */
-/* random re-orientation at boundary */
-/* interaction with neurons in cone */
-/* Verwendet Routinen aus Numerical Recipes */
-/* Ruediger Zillmer, May 2013 */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
@@ -17,8 +12,6 @@
 #include "randomd.h"
 #include "options.h"
 
-/*#define DIM 4*/
-/*#define NLYAP 2*/
 #define Pi         2.*asin(1.)
 
 /* ---------- parameter for random number generator -------------------- */
