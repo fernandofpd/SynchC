@@ -1,9 +1,4 @@
 /* swarmsyncRefRan.c - double precision */
-/* unit free */
-/* random re-orientation at boundary */
-/* Verwendet Routinen aus Numerical Recipes */
-/* Ruediger Zillmer, May 2013 */
-/* Fernando Perez Diaz, November 2013 */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
