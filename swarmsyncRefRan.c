@@ -54,6 +54,7 @@ int S=20;
 double L=400;
 double Vel=0.1;
 double smin=1.e-6;
+double Tmax = 1e7;
 
 int main(int argc,char **argv)
 {
@@ -82,6 +83,7 @@ int main(int argc,char **argv)
 	opt_double(&argc,argv,"-e",&eps);
 	opt_double(&argc,argv,"-L",&L);
 	opt_double(&argc,argv,"-a",&alpha);
+        opt_double(&argc,argv,"-T",&Tmax);
 	opt_int(&argc,argv,"-R",&R);
 	opt_string(&argc,argv,"-f",filename);	
   
@@ -115,7 +117,7 @@ int main(int argc,char **argv)
 		} 
   
 		/*for(i=1;i<=n;i++) {*/
-		while(zdum > smin) {
+		while(zdum > smin && time < Tmax) {
 			q=0;
 			/* index of next firing unit p, time t */
 			maxfind(&p,Gam); t = 1-Gam[p];
@@ -144,6 +146,7 @@ int main(int argc,char **argv)
 				}
 			}
 		}
+                if(time >= Tmax) time = -1;	// Data is censored
 		Stime[k] = time;
 	}
   
