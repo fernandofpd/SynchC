@@ -55,14 +55,15 @@ double L=400;
 double Vel=0.1;
 double smin=1.e-6;
 double Tmax = 1e7;
+double alpha = 18;
 
 int main(int argc,char **argv)
 {
 	int i,j,k,seed1=7,n=200,p,q;
 	int R=1;
 	uint32 seed=5;
-	double t,phase,cphi,dpos,zdum=1,time=0;
-	double dposm,cphim,alpha=18;
+	double t,phase,phi,dpos,zdum=1,time=0;
+	double dposm;
 	/* neuron phase Gam, motion angle Phi */ 
 	/* xy-position Pxy, xy-velocity Vxy */
 	double *Gam,*Phi,*Px,*Py,*Vx,*Vy;
@@ -89,7 +90,7 @@ int main(int argc,char **argv)
   
 	/* scale max separation and define max angle */
 	dposm=2*L/sqrt(S);
-	cphim=cos(3.1416/180*alpha);
+	alpha = 3.1416/180*alpha;
   
 	out1=fopen(filename,"w"); fclose(out1); out1=fopen(filename,"a");
 
@@ -137,8 +138,8 @@ int main(int argc,char **argv)
 				if(j==p) continue;
 					dpos=edist(Px,Py,p,j);
 					if(dpos <= dposm){
-						cphi=cangle(Px,Py,Vx,Vy,j,p);
-						if(cphi >= cphim) {
+						phi=cangle(Px,Py,Vx,Vy,j,p);
+						if(phi <= alpha) {
 							Gam[j] *= (1+eps);
 							if(Gam[j] >= 1) Gam[j] = 1;
 						}
@@ -252,13 +253,13 @@ double edist(double *px,double *py,int p,int k)
 
 double cangle(double *px,double *py,double *vx,double *vy,int p,int k)
 {
-  double dis;
+  double angle;
   
-  dis = sqrt((px[p]-px[k])*(px[p]-px[k])+(py[p]-py[k])*(py[p]-py[k]));
   /* use scalar product between vel(p) and pos(k)-pos(p) */
-  dis = (vx[p]*(px[k]-px[p])+vy[p]*(py[k]-py[p]))/(Vel*dis);
-  
-  return(dis);
+  angle = (vx[p]*(px[k]-px[p])+vy[p]*(py[k]-py[p]))/(Vel*edist(px,py,p,k));
+  angle = acos(angle); 
+ 
+  return(angle);
 }
 
 double orderpar(double *Gam)
