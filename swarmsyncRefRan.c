@@ -34,9 +34,12 @@ double eps = 0.1;
 int S = 20;
 double L = 400;
 double Vel = 0.1;
+/* synchronization minimum smin, maximum cycle count Tmax */
 double smin = 1.e-6;
 double Tmax = 1e7;
+/* angle alpha and radius r of interaction */
 double alpha = 18;
+double r = 400; 
 
 int main(int argc,char **argv)
 {
@@ -44,7 +47,6 @@ int main(int argc,char **argv)
     int R = 1;
     uint32 seed = 5;
     double t, phase, phi, dpos, zdum = 1, time = 0;
-    double dposm;
     /* neuron phase Gam, motion angle Phi */ 
     /* xy-position Pxy, xy-velocity Vxy */
     double *Gam, *Phi, *Px, *Py, *Vx, *Vy;
@@ -64,13 +66,12 @@ int main(int argc,char **argv)
     opt_double(&argc, argv, "-e", &eps);
     opt_double(&argc, argv, "-L", &L);
     opt_double(&argc, argv, "-a", &alpha);
+    opt_double(&argc, argv, "-r", &r);
     opt_double(&argc, argv, "-T", &Tmax);
     opt_int(&argc, argv, "-R", &R);
     opt_string(&argc, argv, "-f", filename);    
   
-    /* scale max separation and define max angle */
-    dposm = 2*L/sqrt(S);
-    alpha = 3.1416/180*alpha;
+    alpha = Pi/180*alpha;
   
     out1 = fopen(filename, "w"); fclose(out1); out1 = fopen(filename, "a");
 
@@ -115,7 +116,7 @@ int main(int argc,char **argv)
             for(j = 1; j <= S; j++) {
                 if(j == p) continue;
                     dpos = edist(Px, Py, p, j);
-                    if(dpos <= dposm){
+                    if(dpos <= r){
                         phi = cangle(Px, Py, Vx, Vy, j, p);
                         if(phi <= alpha) {
                             Gam[j] *= (1 + eps);
