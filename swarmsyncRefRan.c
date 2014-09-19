@@ -47,7 +47,6 @@ int bhit(double *x,double *y,double *vx,double *vy,double *Gam,double *t);
 
 /* Parameter: */
 double tau=1.;
-double dphi=0.1;
 /* epsilon, unit number S, box size L, velocity Vel */
 double eps=0.1;
 int S=20;
@@ -79,7 +78,6 @@ int main(int argc,char **argv)
 	opt_int(&argc,argv,"-n",&n);
 	opt_int(&argc,argv,"-N",&S);
 	opt_int(&argc,argv,"-s",&seed1);
-	opt_double(&argc,argv,"-dp",&dphi);
 	opt_double(&argc,argv,"-V",&Vel);
 	opt_double(&argc,argv,"-e",&eps);
 	opt_double(&argc,argv,"-L",&L);
