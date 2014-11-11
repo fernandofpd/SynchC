@@ -128,9 +128,8 @@ int main(int argc,char **argv)
         }
                 if(time >= Tmax) time = -1;    // Data is censored
         Stime[k] = time;
+    	fprintf(out1, "%d\n", Stime[k]); 
     }
-  
-    for(i = 1; i <= R; i++) fprintf(out1, "%d\n", Stime[i]); 
   
     fclose(out1);
   
