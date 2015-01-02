@@ -24,15 +24,15 @@ void findNeighbors(double *Px, double *Py, double *Vx, double *Vy, int p, int *n
 /* find Q nearest neighbors of unit k */
 void qNearest(double *Px, double *Py, int p, int *neigh);
 /* find neighbors in cone */
-void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh);
+void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction);
 /* euclid dist p k */
-double edist(double *Px,double *Py,int p,int k);
-double cangle(double *Px,double *Py,double *Vx,double *Vy,int p,int k);
+double edist(double *Px, double *Py, int p, int k);
+double cangle(double *Px, double *Py, double *Vx, double *Vy, int p, int k);
 /* Calculate Order Parameter */
 double orderpar(double *Gam);
-int bhit(double *x,double *y,double *Vx,double *Vy,double *Gam,double *t);
+int bhit(double *x, double *y, double *Vx, double *Vy, double *Gam, double *t);
 
-/* Parameter: */
+/* Parameters */
 double tau = 1.;
 /* epsilon, unit number S, box size L, velocity Vel */
 double eps = 0.1;
@@ -57,11 +57,11 @@ int main(int argc,char **argv)
     /* oscillator phase Gam, motion angle Phi */
     /* xy-position Pxy, xy-velocity Vxy */
     double *Gam, *Phi, *Px, *Py, *Vx, *Vy;
-    int *P, *neigh, *Stime;
+    int *neigh, *Stime;
     FILE *out1;
     char filename[128] = "dat";
 
-    if(opt_flag(&argc,argv,"-h")) {
+    if(opt_flag(&argc, argv," -h")) {
         printf("\nOptions: -n\n\n");
         exit(0);
     }
@@ -74,7 +74,7 @@ int main(int argc,char **argv)
     opt_double(&argc, argv, "-V", &Vel);
     opt_double(&argc, argv, "-e", &eps);
     opt_double(&argc, argv, "-L", &L);
-    opt_double(&argc,argv,"-a",&alpha);
+    opt_double(&argc, argv,"-a", &alpha);
     opt_double(&argc, argv, "-r", &r);
     opt_double(&argc,argv,"-T",&Tmax);
     opt_string(&argc, argv, "-f", filename);
@@ -135,10 +135,9 @@ int main(int argc,char **argv)
         }
         if(time >= Tmax) time = -1;    // Data is censored
         Stime[j] = time;
+        fprintf(out1, "%d\n", Stime[j]);
     }
-    /* Save results to file */
-    for(i = 1; i <= R; i++) fprintf(out1, "%d\n", Stime[i]);
-    
+ 
     /* Free memory */
     fclose(out1);
     free_dvector(Gam, 1, S);
@@ -149,9 +148,8 @@ int main(int argc,char **argv)
     free_dvector(Vy, 1, S);
     free_ivector(Stime, 1, R);
     free_ivector(neigh, 1, S);
-    free_ivector(P,1,S);
 
-return 0;
+    return 0;
 }
 
 void maxfind(int *p, double *Gam)
@@ -170,8 +168,9 @@ void findNeighbors(double *Px, double *Py, double *Vx, double *Vy, int p, int *n
     int i;
     // Initialize neighborhood to zero
     for(i = 1; i <= S; i++) neigh[i] = 0;
-    if(strcmp(neighborhood,"QNearest") == 0) qNearest(Px, Py, p, neigh);
-    else if(strcmp(neighborhood,"ConeOut") == 0) cone(Px, Py, Vx, Vy, p, neigh);
+    if(strcmp(neighborhood, "QNearest") == 0) qNearest(Px, Py, p, neigh);
+    else if(strcmp(neighborhood, "ConeOut") == 0) cone(Px, Py, Vx, Vy, p, neigh, "Out");
+    else if(strcmp(neighborhood, "ConeIn") == 0) cone(Px, Py, Vx, Vy, p, neigh, "In");
 }
 
 void qNearest(double *Px, double *Py, int p, int *neigh) {
@@ -217,14 +216,15 @@ void qNearest(double *Px, double *Py, int p, int *neigh) {
     free_dvector(dis2all, 1, S);
 }
 
-void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh) {
+void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction) {
     int j;
     double phi, dpos;
     for(j = 1; j <= S; j++) {
         if(j == p) continue;
         dpos = edist(Px, Py, p, j);
         if(dpos <= r) {
-            phi = cangle(Px, Py, Vx, Vy, p, j);
+            if (direction == "Out") phi = cangle(Px, Py, Vx, Vy, p, j);
+            if (direction == "In") phi = cangle(Px, Py, Vx, Vy, j, p);
             if(phi <= alpha) neigh[j] = 1;            
         }
     }
@@ -232,20 +232,20 @@ void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh) {
 
 double edist(double *Px,double *Py,int p,int k)
 {
-  double dis;
-  dis = sqrt((Px[p]-Px[k])*(Px[p]-Px[k])+(Py[p]-Py[k])*(Py[p]-Py[k]));
-  return(dis);
+    double dis;
+    dis = sqrt((Px[p]-Px[k])*(Px[p]-Px[k])+(Py[p]-Py[k])*(Py[p]-Py[k]));
+    return(dis);
 }
 
 double cangle(double *Px,double *Py,double *Vx,double *Vy,int p,int k)
 {
-  double angle;
-  
-  /* use scalar product between vel(p) and pos(k)-pos(p) */
-  angle = (Vx[p]*(Px[k]-Px[p])+Vy[p]*(Py[k]-Py[p]))/(Vel*edist(Px,Py,p,k));
-  angle = acos(angle); 
+    double angle;
+
+    /* use scalar product between vel(p) and pos(k)-pos(p) */
+    angle = (Vx[p]*(Px[k]-Px[p])+Vy[p]*(Py[k]-Py[p]))/(Vel*edist(Px,Py,p,k));
+    angle = acos(angle); 
  
-  return(angle);
+    return(angle);
 }
 
 double orderpar(double *Gam)
