@@ -20,6 +20,7 @@
 void maxfind(int *p, double *Gam);
 /* random number generator */
 double ranMT(void);
+void findNeighbors(double *px, double *py, int k, int Q, int *neigh);
 /* find Q nearest neighbors of unit k */
 void Qnearest(double *px, double *py, int k, int Q, int *neigh);
 double orderpar(double *Gam);
@@ -35,10 +36,11 @@ double L = 400;
 double Vel = 0.1;
 double smin = 1.e-6;
 int maxT = 100000;
+char neighborhood[128] = "QNearest";
 
 int main(int argc,char **argv)
 {
-    int i, j, k, seed1 = 7, n = 200, p, nn, Q = 1, R = 1, time = 0;
+    int i, j, k, seed1 = 7, p, Q = 1, R = 1, time = 0;
     uint32 seed = 5;
     double t, phase, zdum;
     /* neuron phase Gam, motion angle Phi */
@@ -51,7 +53,6 @@ int main(int argc,char **argv)
 
     /* Input parameters */
     opt_int(&argc, argv, "-Q", &Q);
-    opt_int(&argc, argv, "-n", &n);
     opt_int(&argc, argv, "-N", &S);
     opt_int(&argc, argv, "-R", &R);
     opt_int(&argc, argv, "-s", &seed1);
@@ -60,6 +61,7 @@ int main(int argc,char **argv)
     opt_double(&argc, argv, "-e", &eps);
     opt_double(&argc, argv, "-L", &L);    
     opt_string(&argc, argv, "-f", filename);
+    opt_string(&argc, argv, "-n", neighborhood);
 
     out1 = fopen(filename, "w"); fclose(out1); out1 = fopen(filename, "a");
         
@@ -70,7 +72,7 @@ int main(int argc,char **argv)
     Vx = dvector(1, S);
     Vy = dvector(1, S);
     Stime = ivector(1, R);
-    neigh = ivector(1, Q);
+    neigh = ivector(1, S);
 
     /* initialize random numbers */
     seed=(uint32)(seed1); seedMT(seed);
@@ -99,11 +101,12 @@ int main(int argc,char **argv)
             }
             Gam[p] = 0;            
 
-            Qnearest(Px, Py, p, Q, neigh);            
-            for(k = 1; k <= Q; k++) {
-                nn = neigh[k];
-                Gam[nn] *= (1+eps);
-                if(Gam[nn] >= 1) Gam[nn] = 1;
+            findNeighbors(Px, Py, p, Q, neigh);            
+            for(k = 1; k <= S; k++) {
+                if(neigh[k] == 1) {
+                    Gam[k] *= (1+eps);
+                    if(Gam[k] >= 1) Gam[k] = 1;
+                }
             }
         }
         Stime[j] = time;
@@ -120,7 +123,7 @@ int main(int argc,char **argv)
     free_dvector(Vx, 1, S);
     free_dvector(Vy, 1, S);
     free_ivector(Stime, 1, R);
-    free_ivector(neigh, 1, Q);
+    free_ivector(neigh, 1, S);
 
 return 0;
 }
@@ -135,6 +138,13 @@ void maxfind(int *p, double *Gam)
 double ranMT(void)
 {
     return (double) randomMT()/NORM;
+}
+
+void findNeighbors(double *px, double *py, int k, int Q, int *neigh) {
+    int i;
+    // Initialize neighborhood to zero
+    for(i = 1; i <= S; i++) neigh[i] = 0;
+    if(strcmp(neighborhood,"QNearest") == 0) Qnearest(px, py, k, Q, neigh);
 }
 
 void Qnearest(double *px, double *py, int k, int Q, int *neigh) {
@@ -175,7 +185,7 @@ void Qnearest(double *px, double *py, int k, int Q, int *neigh) {
             }
         }
         dis2all[foo] = dum;
-        neigh[i] = foo;
+        neigh[foo] = 1;
     }
     free_dvector(dis2all, 1, S);
 }
