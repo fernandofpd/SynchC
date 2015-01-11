@@ -1,4 +1,4 @@
-/* swarmsyncRefRan.c - double precision */
+/* swarmsyncRefRan.c */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
@@ -13,60 +13,68 @@
 #include "randomd.h"
 #include "options.h"
 #include "cokus.h"
-#define Pi         2.*asin(1.)
+#define Pi 2.*asin(1.)
 
-/* ---------------------------------------------------- */
+/* ----------- Function Declarations ----------- */
 
-void maxfind(int *p, double *Gam);
-/* random number generator */
+void maxfind(int *p, double *phase);
+/* Random number generator */
 double ranMT(void);
+/* Find Neighbors */
 void findNeighbors(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh);
-/* find Q nearest neighbors of unit k */
+/* Find Q nearest neighbors of unit k */
 void qNearest(double *Px, double *Py, int p, int *neigh);
-/* find neighbors in cone */
+/* Find neighbors in cone */
 void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction);
-/* euclid dist p k */
+/* Distance and angle between p & k */
 double edist(double *Px, double *Py, int p, int k);
 double cangle(double *Px, double *Py, double *Vx, double *Vy, int p, int k);
 /* Calculate Order Parameter */
-double orderpar(double *Gam);
-int bhit(double *x, double *y, double *Vx, double *Vy, double *Gam, double *t);
+double orderpar(double *phase);
+/* Calculate next firing or wall hit */
+int bhit(double *x, double *y, double *Vx, double *Vy, double *phase, double *t);
 
-/* Parameters */
+/* ----------  Parameters ----------- */
+
+/* Tau, epsilon, unit number S, box size L, velocity Vel */
 double tau = 1.;
-/* epsilon, unit number S, box size L, velocity Vel */
 double eps = 0.1;
 int S = 20;
 double L = 400;
 double Vel = 0.1;
-/* synchronization minimum smin, maximum cycle count Tmax */
+/* Synchronization minimum smin, maximum cycle count Tmax */
 double smin = 1.e-6;
 double Tmax = 1e7;
+/* Type of neighborhood */
 char neighborhood[128] = "QNearest";
-/* angle alpha and radius r of interaction */
+/* Angle alpha and radius r of interaction */
 double alpha = 18;
 double r = 400;
-
+/* Number of nearest neighbors */
 int Q = 1;
+
+/* ---------- Main ----------- */
 
 int main(int argc,char **argv)
 {
+    /* ------ Variable Declarations -----*/
     int i, j, k, seed1 = 7, p, q, R = 1;
     uint32 seed = 5;
-    double t, phase, zdum, time;
-    /* oscillator phase Gam, motion angle Phi */
+    double t, ordPar, zdum, time;
+    /* Oscillator phase, motion angle phi */
     /* xy-position Pxy, xy-velocity Vxy */
-    double *Gam, *Phi, *Px, *Py, *Vx, *Vy;
+    double *phase, *phi, *Px, *Py, *Vx, *Vy;
     int *neigh, *Stime;
     FILE *out1;
     char filename[128] = "dat";
 
+    /* ----- Input parameters ----- */
+    
     if(opt_flag(&argc, argv," -h")) {
         printf("\nOptions: -n\n\n");
         exit(0);
     }
 
-    /* Input parameters */
     opt_int(&argc, argv, "-Q", &Q);
     opt_int(&argc, argv, "-N", &S);
     opt_int(&argc, argv, "-R", &R);
@@ -80,12 +88,14 @@ int main(int argc,char **argv)
     opt_string(&argc, argv, "-f", filename);
     opt_string(&argc, argv, "-n", neighborhood);
 
+    /* ----- Initializations ----- */
+
     alpha = Pi/180*alpha;
 
     out1 = fopen(filename, "w"); fclose(out1); out1 = fopen(filename, "a");
  
-    Gam = dvector(1, S);
-    Phi = dvector(1, S);
+    phase = dvector(1, S);
+    phi = dvector(1, S);
     Px = dvector(1, S);
     Py = dvector(1, S);
     Vx = dvector(1, S);
@@ -93,55 +103,60 @@ int main(int argc,char **argv)
     Stime = ivector(1, R);
     neigh = ivector(1, S);
 
-    /* initialize random numbers */
+    /* Initialize random numbers */
     seed = (uint32)(seed1); seedMT(seed);
 
     /* Loop over the Runs */
     for(j = 1; j <= R; j++) {
         zdum = 1; time = 0;
 
-        /* random initial values */
+        /* Random initial values */
         for(i = 1; i <= S; i++) {
-            Gam[i] = ranMT(); Phi[i] = 2*Pi*ranMT();
+            phase[i] = ranMT(); phi[i] = 2*Pi*ranMT();
             Px[i] = L*ranMT(); Py[i] = L*ranMT();
-            Vx[i] = Vel*cos(Phi[i]); Vy[i] = Vel*sin(Phi[i]);
+            Vx[i] = Vel*cos(phi[i]); Vy[i] = Vel*sin(phi[i]);
         }
 
+        /* While not yet synchronized or before Tmax cycles have elapsed */
         while(zdum > smin && time < Tmax) {
             q = 0;
-            /* index of next firing unit p, time t */
-            maxfind(&p, Gam); t = 1 - Gam[p];
-            /* update position and velocities */
+            /* Index of next firing unit p, time t */
+            maxfind(&p, phase); t = 1 - phase[p];
+            /* Update position and velocities */
             /* either next unit fires (q=1) or hits the wall (q=0) */
-            q = bhit(Px, Py, Vx, Vy, Gam, &t);
+            q = bhit(Px, Py, Vx, Vy, phase, &t);
 
+            /* If unit fires */
             if(q > 0) { 
-                /* when reference unit 1 fires find out order parameter */
+                /* When reference unit 1 fires calculate order parameter */
                 if(p == 1) {
-                    phase = orderpar(Gam);
-                    zdum = 1 - phase;
+                    ordPar = orderpar(phase);
+                    zdum = 1 - ordPar;
                     time++;
                 }
-                Gam[p] = 0;            
-                
+                /* Reset phase */
+                phase[p] = 0; 
+                /* Find neighbors and update their phase */
                 findNeighbors(Px, Py, Vx, Vy, p, neigh);            
                 for(k = 1; k <= S; k++) {
                     if(neigh[k] == 1) {
-                        Gam[k] *= (1 + eps);
-                        if(Gam[k] >= 1) Gam[k] = 1;
+                        phase[k] *= (1 + eps);
+                        if(phase[k] >= 1) phase[k] = 1;
                     }
                 }
             }
         }
-        if(time >= Tmax) time = -1;    // Data is censored
+        /* If not synchronized in Tmax cycles, censor data */
+        if(time >= Tmax) time = -1;
+        /* Save the Synchronization times */
         Stime[j] = time;
         fprintf(out1, "%d\n", Stime[j]);
     }
  
-    /* Free memory */
+    /* ----- Free memory ----- */
     fclose(out1);
-    free_dvector(Gam, 1, S);
-    free_dvector(Phi, 1, S);
+    free_dvector(phase, 1, S);
+    free_dvector(phi, 1, S);
     free_dvector(Px, 1, S);
     free_dvector(Py, 1, S);
     free_dvector(Vx, 1, S);
@@ -152,27 +167,32 @@ int main(int argc,char **argv)
     return 0;
 }
 
-void maxfind(int *p, double *Gam)
+/* ----- Find index p corresponding to maximum phase ----- */
+void maxfind(int *p, double *phase)
 {
     int i;
-    *p=1;
-    for(i = 2; i <= S; i++) if(Gam[i] > Gam[*p]) *p = i;
+    *p = 1;
+    for(i = 2; i <= S; i++) if(phase[i] > phase[*p]) *p = i;
 }
 
+/* ----- Random number generator ----- */
 double ranMT(void)
 {
     return (double) randomMT()/NORM;
 }
 
+/* ------ Find all neighbors ----- */
 void findNeighbors(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh) {
     int i;
-    // Initialize neighborhood to zero
+    /* Initialize neighborhood to zero */
     for(i = 1; i <= S; i++) neigh[i] = 0;
+    /* Use appropriate function according to neighborhood */
     if(strcmp(neighborhood, "QNearest") == 0) qNearest(Px, Py, p, neigh);
     else if(strcmp(neighborhood, "ConeOut") == 0) cone(Px, Py, Vx, Vy, p, neigh, "Out");
     else if(strcmp(neighborhood, "ConeIn") == 0) cone(Px, Py, Vx, Vy, p, neigh, "In");
 }
 
+/* ----- Find Q nearest neighbors ----- */
 void qNearest(double *Px, double *Py, int p, int *neigh) {
     int i, j, foo;
     double dum = 2*L*L, dum1;
@@ -202,6 +222,9 @@ void qNearest(double *Px, double *Py, int p, int *neigh) {
     free_dvector(dis2all, 1, S);
 }
 
+/* ----- Find Neighbors in a Cone ---- */
+/* If direction == "Out" : p's neighbors will be the agents that lie inside its cone -- Cone of Influence */
+/* If direction == "In" : p's neighbors will be the agents that see p inside their cone -- Cone of Vision */
 void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction) {
     int j;
     double phi, dpos;
@@ -216,39 +239,45 @@ void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, cha
     }
 }
 
-double edist(double *Px,double *Py,int p,int k)
+/* ----- Euclidian distance between p & k ----- */
+double edist(double *Px, double *Py, int p, int k)
 {
     double dis;
-    dis = sqrt((Px[p]-Px[k])*(Px[p]-Px[k])+(Py[p]-Py[k])*(Py[p]-Py[k]));
+    dis = sqrt((Px[p]-Px[k])*(Px[p]-Px[k]) + (Py[p]-Py[k])*(Py[p]-Py[k]));
     return(dis);
 }
 
+/* ----- Angle between p->k and p's direction of motion ----- */
 double cangle(double *Px,double *Py,double *Vx,double *Vy,int p,int k)
 {
     double angle;
 
-    /* use scalar product between vel(p) and pos(k)-pos(p) */
+    /* Use scalar product between vel(p) and pos(k)-pos(p) */
     angle = (Vx[p]*(Px[k]-Px[p])+Vy[p]*(Py[k]-Py[p]))/(Vel*edist(Px,Py,p,k));
     angle = acos(angle); 
  
     return(angle);
 }
 
-double orderpar(double *Gam)
+/* ----- Calculate Order Parameter ----- */
+double orderpar(double *phase)
 {
     int i;
     double p = 0;
-    for(i = 1; i <= S; i++) p += cos(2*Pi*Gam[i]);    
+    for(i = 1; i <= S; i++) p += cos(2*Pi*phase[i]);    
     p /= S;
     return(p);
 }
 
-int bhit(double *x,double *y,double *Vx,double *Vy,double *Gam,double *t)
+/* ----- Calculate next firing or wall hit ---- */
+/* Update position and velocities */
+/* either next unit fires (q=1) or hits the wall (q=0) */
+int bhit(double *x,double *y,double *Vx,double *Vy,double *phase,double *t)
 {
     int i, q = 1, qi = 1;
     double tb = 2, dum;
     
-    /* compute time for next boundary hit */
+    /* Compute time for next boundary hit */
     for(i = 1; i <= S; i++) {
         if(Vx[i] > 0) dum = (L-x[i])/Vx[i];
         if(Vx[i] < 0) dum = (-x[i])/Vx[i];
@@ -265,16 +294,16 @@ int bhit(double *x,double *y,double *Vx,double *Vy,double *Gam,double *t)
             tb = dum; q = i;
         }
     }
-    /* boundary hit before next firing? */
+    /* Boundary hit before next firing? */
     if(tb <= *t) {
         qi = 0; *t = tb;
     }
-    /* update phases and positions */
-    for(i=1;i<=S;i++) {
+    /* Update phases and positions */
+    for(i = 1; i <= S; i++) {
         x[i] += Vx[i]*(*t); y[i] += Vy[i]*(*t);
-        Gam[i] += (*t);
+        phase[i] += (*t);
     }
-    /* if wall is hit do random reflection */
+    /* If wall is hit do random reflection */
     /* distinguish x-wall (q <= S) and y-wall */
     if(qi == 0) {
         dum = Pi*ranMT();
