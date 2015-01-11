@@ -1,4 +1,11 @@
-/* swarmsyncRefRan.c */
+/* ---------- swarmSync.c --------- */
+/* Swarm Synchronization of S particles moving with speed vel in a square environment of length L */
+/* Particles are linear integrate and fire oscillators with period tau */
+/* When an oscillator's  phase reaches 1 it is reset to 0 and interacts with its neighbors */
+/* This interaction is a multiplicative update of the neighbor's phase by a factor (1 + epsilon) */
+/* Several type of neighborhoods are included */
+/* The system is updated either upon a wall-hit or a firing event. It is a pure continuous time simulation */
+/* Fernando Perez-Diaz and Ruediger Zillmer */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
