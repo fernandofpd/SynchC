@@ -184,21 +184,7 @@ void qNearest(double *Px, double *Py, int p, int *neigh) {
     /* Calculate distances to all other oscillators */
     for(i = 1; i <= S; i++) {
         if(i == p) continue;
-        /* Take into account the periodic boundary conditions */
-        dis[0] = (Px[i]-Px[p])*(Px[i]-Px[p])+(Py[i]-Py[p])*(Py[i]-Py[p]);
-        dis[1] = (Px[i]-Px[p])*(Px[i]-Px[p])+(Py[i]-L-Py[p])*(Py[i]-L-Py[p]);
-        dis[2] = (Px[i]-Px[p])*(Px[i]-Px[p])+(Py[i]+L-Py[p])*(Py[i]+L-Py[p]);
-        dis[3] = (Px[i]-L-Px[p])*(Px[i]-L-Px[p])+(Py[i]-Py[p])*(Py[i]-Py[p]);
-        dis[4] = (Px[i]-L-Px[p])*(Px[i]-L-Px[p])+(Py[i]-L-Py[p])*(Py[i]-L-Py[p]);
-        dis[5] = (Px[i]-L-Px[p])*(Px[i]-L-Px[p])+(Py[i]+L-Py[p])*(Py[i]+L-Py[p]);
-        dis[6] = (Px[i]+L-Px[p])*(Px[i]+L-Px[p])+(Py[i]-Py[p])*(Py[i]-Py[p]);
-        dis[7] = (Px[i]+L-Px[p])*(Px[i]+L-Px[p])+(Py[i]-L-Py[p])*(Py[i]-L-Py[p]);
-        dis[8] = (Px[i]+L-Px[p])*(Px[i]+L-Px[p])+(Py[i]+L-Py[p])*(Py[i]+L-Py[p]);
-        dum1 = dis[0]; 
-        for(j = 1; j < 9; j++) {
-            if(dis[j] < dum1) dum1 = dis[j];
-        }
-        dis2all[i] = dum1;
+        dis2all[i] = edist(Px, Py, p, i);
     }
 
     /* Find Q nearest neighbors */
