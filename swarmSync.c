@@ -16,8 +16,6 @@
 #include <limits.h>
 
 #include "nrutil.h"
-#include "vecmatd.h"
-#include "randomd.h"
 #include "options.h"
 #include "cokus.h"
 #define Pi 2.*asin(1.)
