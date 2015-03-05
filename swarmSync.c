@@ -63,23 +63,19 @@ int Q = 1;
 int main(int argc,char **argv)
 {
     /* ------ Variable Declarations -----*/
-    int i, j, k, seed1 = 7, p, q, R = 1;
+    int i, j, k, seed1 = 7, p, q, R = 1, calcConn;
     uint32 seed = 5;
-    double t, ordPar, zdum, time;
+    double t, ordPar, zdum, time, firingTime;
     /* Oscillator phase, motion angle phi */
     /* xy-position Pxy, xy-velocity Vxy */
     double *phase, *phi, *Px, *Py, *Vx, *Vy;
-    int *neigh, *Stime;
-    FILE *out1;
-    char filename[128] = "dat";
+    int *neigh, *Stime, **conn;
+    FILE *out1, *out2;
+    char filename[128] = "dat", filename2[128] = "conn";
 
     /* ----- Input parameters ----- */
     
-    if(opt_flag(&argc, argv," -h")) {
-        printf("\nOptions: -n\n\n");
-        exit(0);
-    }
-
+    calcConn = opt_flag(&argc, argv,"-c"); 
     opt_int(&argc, argv, "-Q", &Q);
     opt_int(&argc, argv, "-N", &S);
     opt_int(&argc, argv, "-R", &R);
@@ -107,13 +103,20 @@ int main(int argc,char **argv)
     Vy = dvector(1, S);
     Stime = ivector(1, R);
     neigh = ivector(1, S);
+    conn = imatrix(1, S, 1, S);
 
     /* Initialize random numbers */
     seed = (uint32)(seed1); seedMT(seed);
 
     /* Loop over the Runs */
     for(j = 1; j <= R; j++) {
+        if(calcConn) {
+            sprintf(filename2, "%sconn%d", filename, j);
+            out2 = fopen(filename2, "w"); fclose(out2); out2 = fopen(filename2, "a");
+        }
+
         zdum = 1; time = 0;
+        firingTime = 0;
 
         /* Random initial values */
         for(i = 1; i <= S; i++) {
@@ -132,7 +135,26 @@ int main(int argc,char **argv)
             q = bhit(Px, Py, Vx, Vy, phase, &t);
 
             /* If unit fires */
-            if(q > 0) { 
+            if(q > 0) {
+                if(t > 0 && calcConn == 1) {
+                    /* Save connectivity matrix */
+                    if(firingTime > 0) {
+                        fprintf(out2, "%f\t", firingTime);
+                        for(i = 1; i <= S; i++) {
+                            for(k = 1; k <= S; k++) {
+                               fprintf(out2, "%d\t", conn[i][k]);
+                            }
+                        }
+                        fprintf(out2, "\n");
+                    }
+                    /* Reset matrix to zero */                    
+                    for(i = 1; i <= S; i++) {
+                        for(k = 1; k <= S; k++) {
+                            conn[i][k] = 0;
+                        }
+                    }
+                    firingTime += t; 
+                }
                 /* When reference unit 1 fires calculate order parameter */
                 if(p == 1) {
                     ordPar = orderpar(phase);
@@ -142,11 +164,13 @@ int main(int argc,char **argv)
                 /* Reset phase */
                 phase[p] = 0; 
                 /* Find neighbors and update their phase */
-                findNeighbors(Px, Py, Vx, Vy, p, neigh);            
+                findNeighbors(Px, Py, Vx, Vy, p, neigh); 
                 for(k = 1; k <= S; k++) {
                     if(neigh[k] == 1) {
                         phase[k] *= (1 + eps);
                         if(phase[k] >= 1) phase[k] = 1;
+                        /* Update connectivity matrix */
+                        if(calcConn == 1) conn[p][k] += 1;
                     }
                 }
             }
@@ -156,6 +180,8 @@ int main(int argc,char **argv)
         /* Save the Synchronization times */
         Stime[j] = time;
         fprintf(out1, "%d\n", Stime[j]);
+
+        if(calcConn) fclose(out2);
     }
  
     /* ----- Free memory ----- */
@@ -168,6 +194,7 @@ int main(int argc,char **argv)
     free_dvector(Vy, 1, S);
     free_ivector(Stime, 1, R);
     free_ivector(neigh, 1, S);
+    free_imatrix(conn, 1, S, 1, S);
 
     return 0;
 }
@@ -277,7 +304,7 @@ double orderpar(double *phase)
 /* ----- Calculate next firing or wall hit ---- */
 /* Update position and velocities */
 /* either next unit fires (q=1) or hits the wall (q=0) */
-int bhit(double *x,double *y,double *Vx,double *Vy,double *phase,double *t)
+int bhit(double *x, double *y, double *Vx, double *Vy, double *phase, double *t)
 {
     int i, q = 1, qi = 1;
     double tb = 2, dum;
