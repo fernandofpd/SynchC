@@ -69,7 +69,7 @@ int main(int argc,char **argv)
     /* Oscillator phase, motion angle phi */
     /* xy-position Pxy, xy-velocity Vxy */
     double *phase, *phi, *Px, *Py, *Vx, *Vy;
-    int *neigh, *Stime, **conn;
+    int *neigh, *Stime;
     FILE *out1, *out2;
     char filename[128] = "dat", filename2[128] = "conn";
 
@@ -103,7 +103,6 @@ int main(int argc,char **argv)
     Vy = dvector(1, S);
     Stime = ivector(1, R);
     neigh = ivector(1, S);
-    conn = imatrix(1, S, 1, S);
 
     /* Initialize random numbers */
     seed = (uint32)(seed1); seedMT(seed);
@@ -136,25 +135,6 @@ int main(int argc,char **argv)
 
             /* If unit fires */
             if(q > 0) {
-                if(t > 0 && calcConn == 1) {
-                    /* Save connectivity matrix */
-                    if(firingTime > 0) {
-                        fprintf(out2, "%f\t", firingTime);
-                        for(i = 1; i <= S; i++) {
-                            for(k = 1; k <= S; k++) {
-                               fprintf(out2, "%d\t", conn[i][k]);
-                            }
-                        }
-                        fprintf(out2, "\n");
-                    }
-                    /* Reset matrix to zero */                    
-                    for(i = 1; i <= S; i++) {
-                        for(k = 1; k <= S; k++) {
-                            conn[i][k] = 0;
-                        }
-                    }
-                    firingTime += t; 
-                }
                 /* When reference unit 1 fires calculate order parameter */
                 if(p == 1) {
                     ordPar = orderpar(phase);
@@ -169,8 +149,15 @@ int main(int argc,char **argv)
                     if(neigh[k] == 1) {
                         phase[k] *= (1 + eps);
                         if(phase[k] >= 1) phase[k] = 1;
-                        /* Update connectivity matrix */
-                        if(calcConn == 1) conn[p][k] += 1;
+                        /* Save connectivity matrix */
+                        if(calcConn == 1) {
+                            if(t > 0) {
+                                if (firingTime >0) fprintf(out2,"\n");
+                                firingTime += t;
+                                fprintf(out2, "%f\t", firingTime);
+                            }
+                            fprintf(out2, "%d\t%d\t", p, k); 
+                        }
                     }
                 }
             }
@@ -194,7 +181,6 @@ int main(int argc,char **argv)
     free_dvector(Vy, 1, S);
     free_ivector(Stime, 1, R);
     free_ivector(neigh, 1, S);
-    free_imatrix(conn, 1, S, 1, S);
 
     return 0;
 }
