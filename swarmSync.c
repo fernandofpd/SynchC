@@ -37,7 +37,8 @@ double cangle(double *Px, double *Py, double *Vx, double *Vy, int p, int k);
 /* Calculate Order Parameter */
 double orderpar(double *phase);
 /* Calculate next firing or wall hit */
-int bhit(double *x, double *y, double *Vx, double *Vy, double *phase, double *t);
+void unboundedMove(double *x, double *y, double *Vx, double *Vy, double t);
+void boundedMove(double *x, double *y, double *Vx, double *Vy, double t);
 
 /* ----------  Parameters ----------- */
 
@@ -58,12 +59,14 @@ double r = 400;
 /* Number of nearest neighbors */
 int Q = 1;
 
+int boundary;
+
 /* ---------- Main ----------- */
 
 int main(int argc,char **argv)
 {
     /* ------ Variable Declarations -----*/
-    int i, j, k, seed1 = 7, p, q, R = 1, calcConn;
+    int i, j, k, seed1 = 7, p, R = 1, calcConn;
     uint32 seed = 5;
     double t, ordPar, zdum, time, firingTime;
     /* Oscillator phase, motion angle phi */
@@ -75,7 +78,8 @@ int main(int argc,char **argv)
 
     /* ----- Input parameters ----- */
     
-    calcConn = opt_flag(&argc, argv,"-c");              // Calculate connectivity (if flag is on)    
+    calcConn = opt_flag(&argc, argv,"-c");              // Calculate connectivity (if flag is on)
+    boundary = opt_flag(&argc, argv,"-b");              // Bounded envoronment (bounce at walls) (if flag is on) or has periodical boundary conditions
     opt_int(&argc, argv, "-Q", &Q);                     // Number of Nearest Neighbors
     opt_int(&argc, argv, "-N", &S);                     // Total Number of Agents
     opt_int(&argc, argv, "-R", &R);                     // Number of Runs    
@@ -124,40 +128,38 @@ int main(int argc,char **argv)
             Vx[i] = Vel*cos(phi[i]); Vy[i] = Vel*sin(phi[i]);
         }
 
-        /* While not yet synchronized or before Tmax cycles have elapsed */
+        /***** While not yet synchronized or before Tmax cycles have elapsed *****/
         while(zdum > smin && time < Tmax) {
-            q = 0;
-            /* Index of next firing unit p, time t */
-            maxfind(&p, phase); t = 1 - phase[p];
-            /* Update position and velocities */
-            /* either next unit fires (q=1) or hits the wall (q=0) */
-            q = bhit(Px, Py, Vx, Vy, phase, &t);
+            /***** Update phases and perform movement *****/
+            maxfind(&p, phase); t = 1 - phase[p];       // Index of next firing unit p, time t            
+            for(i = 1; i <= S; i++) {phase[i] += t;}    // Update phases and positions
+            if(t > 0) {
+                if(boundary) boundedMove(Px, Py, Vx, Vy, t);
+                else unboundedMove(Px, Py, Vx, Vy, t);
+            }
 
-            /* If unit fires */
-            if(q > 0) {
-                /* When reference unit 1 fires calculate order parameter */
-                if(p == 1) {
-                    ordPar = orderpar(phase);
-                    zdum = 1 - ordPar;
-                    time++;
-                }
-                /* Reset phase */
-                phase[p] = 0; 
-                /* Find neighbors and update their phase */
-                findNeighbors(Px, Py, Vx, Vy, p, neigh); 
-                for(k = 1; k <= S; k++) {
-                    if(neigh[k] == 1) {
-                        phase[k] *= (1 + eps);
-                        if(phase[k] >= 1) phase[k] = 1;
-                        /* Save connectivity matrix */
-                        if(calcConn == 1) {
-                            if(t > 0) {
-                                if (firingTime >0) fprintf(out2,"\n");
-                                firingTime += t;
-                                fprintf(out2, "%f\t", firingTime);
-                            }
-                            fprintf(out2, "%d\t%d\t", p, k); 
+            /***** Firings and Interactions with Neighbors *****/
+            /* When reference unit 1 fires calculate order parameter */
+            if(p == 1) {
+                ordPar = orderpar(phase);
+                zdum = 1 - ordPar;
+                time++;
+            }            
+            phase[p] = 0;   // Reset phase
+            /* Find neighbors and update their phase */
+            findNeighbors(Px, Py, Vx, Vy, p, neigh); 
+            for(k = 1; k <= S; k++) {
+                if(neigh[k] == 1) {
+                    phase[k] *= (1 + eps);
+                    if(phase[k] >= 1) phase[k] = 1;
+                    /* Save connectivity matrix */
+                    if(calcConn == 1) {
+                        if(t > 0) {
+                            if (firingTime >0) fprintf(out2,"\n");
+                            firingTime += t;
+                            fprintf(out2, "%f\t", firingTime);
                         }
+                        fprintf(out2, "%d\t%d\t", p, k); 
                     }
                 }
             }
@@ -287,52 +289,66 @@ double orderpar(double *phase)
     return(p);
 }
 
-/* ----- Calculate next firing or wall hit ---- */
-/* Update position and velocities */
-/* either next unit fires (q=1) or hits the wall (q=0) */
-int bhit(double *x, double *y, double *Vx, double *Vy, double *phase, double *t)
+/* ----- Movement in an unbounded environment (cyclic boundary conditions) ---- */
+void unboundedMove(double *x, double *y, double *Vx, double *Vy, double t)
 {
-    int i, q = 1, qi = 1;
-    double tb = 2, dum;
+    int i;
+    for(i = 1; i <= S; i++) {
+        x[i] += Vx[i]*t; y[i] += Vy[i]*t; // Update positions
+        /* Periodical boundary conditions */
+        while(x[i] > L) {x[i] -= L;}
+        while(y[i] > L) {y[i] -= L;}
+        while(x[i] < 0) {x[i] += L;}
+        while(y[i] < 0) {y[i] += L;}
+    }
     
-    /* Compute time for next boundary hit */
-    for(i = 1; i <= S; i++) {
-        if(Vx[i] > 0) dum = (L-x[i])/Vx[i];
-        if(Vx[i] < 0) dum = (-x[i])/Vx[i];
-        if(Vx[i] == 0) dum = 2;
-        if(dum < tb) {
-            tb = dum; q = i;
+}
+
+/* ----- Movement in a bounded environment (random reflections at wall) ---- */
+void boundedMove(double *x, double *y, double *Vx, double *Vy, double t)
+{
+    int i, q;
+    double tb, dum;
+    
+    while(t > 0) {
+        tb = 2;
+        /* Compute time for next boundary hit */
+        for(i = 1; i <= S; i++) {
+            if(Vx[i] > 0) dum = (L-x[i])/Vx[i];
+            if(Vx[i] < 0) dum = (-x[i])/Vx[i];
+            if(Vx[i] == 0) dum = 2;
+            if(dum < tb) {
+                tb = dum; q = i;
+            }
+            if(Vy[i] > 0) dum = (L-y[i])/Vy[i];
+            if(Vy[i] < 0) dum = (-y[i])/Vy[i];
+            if(Vy[i] == 0) dum = 2;
+            if(dum < tb) {
+                tb = dum; q = i + S;
+            }
+        }
+        
+        /* Boundary hit before next firing? */
+        if(tb > t) tb = t;
+        t -= tb;
+        
+        /* Update positions */
+        for(i = 1; i <= S; i++) {
+            x[i] += Vx[i]*tb; y[i] += Vy[i]*tb;
+        }
+        
+        /* If wall is hit do random reflection */
+        /* distinguish x-wall (q <= S) and y-wall */
+        if(t > 0) {
+            dum = Pi*ranMT();
+            if(q <= S) {
+                Vx[q] = -(Vx[q]>=0)*sin(dum)*Vel + (Vx[q]<0)*sin(dum)*Vel;
+                Vy[q] = Vel*cos(2*dum);
+            } 
+            else {
+                Vy[q-S] = -(Vy[q-S]>=0)*sin(dum)*Vel + (Vy[q-S]<0)*sin(dum)*Vel;
+                Vx[q-S] = Vel*cos(2*dum);
+            }
         }
     }
-    for(i = S+1; i <= 2*S; i++) {
-        if(Vy[i-S] > 0) dum = (L-y[i-S])/Vy[i-S];
-        if(Vy[i-S] < 0) dum = (-y[i-S])/Vy[i-S];
-        if(Vy[i-S] == 0) dum = 2;
-        if(dum < tb) {
-            tb = dum; q = i;
-        }
-    }
-    /* Boundary hit before next firing? */
-    if(tb <= *t) {
-        qi = 0; *t = tb;
-    }
-    /* Update phases and positions */
-    for(i = 1; i <= S; i++) {
-        x[i] += Vx[i]*(*t); y[i] += Vy[i]*(*t);
-        phase[i] += (*t);
-    }
-    /* If wall is hit do random reflection */
-    /* distinguish x-wall (q <= S) and y-wall */
-    if(qi == 0) {
-        dum = Pi*ranMT();
-        if(q <= S) {
-            Vx[q] = -(Vx[q]>=0)*sin(dum)*Vel + (Vx[q]<0)*sin(dum)*Vel;
-            Vy[q] = Vel*cos(2*dum);
-        } 
-        else {
-            Vy[q-S] = -(Vy[q-S]>=0)*sin(dum)*Vel + (Vy[q-S]<0)*sin(dum)*Vel;
-            Vx[q-S] = Vel*cos(2*dum);
-        }
-    }
-    return(qi);
 }
