@@ -78,20 +78,20 @@ int main(int argc,char **argv)
 
     /* ----- Input parameters ----- */
     
-    calcConn = opt_flag(&argc, argv,"-c");              // Calculate connectivity (if flag is on)
-    boundary = opt_flag(&argc, argv,"-b");              // Bounded envoronment (bounce at walls) (if flag is on) or has periodical boundary conditions
-    opt_int(&argc, argv, "-Q", &Q);                     // Number of Nearest Neighbors
-    opt_int(&argc, argv, "-N", &S);                     // Total Number of Agents
-    opt_int(&argc, argv, "-R", &R);                     // Number of Runs    
-    opt_int(&argc, argv, "-s", &seed1);                 // Random Number Seed    
-    opt_double(&argc, argv, "-V", &Vel);                // Speed of agents
-    opt_double(&argc, argv, "-e", &eps);                // Interaction parameter Epsylon
-    opt_double(&argc, argv, "-L", &L);                  // Length of the environment
-    opt_double(&argc, argv,"-a", &alpha);               // Angle of Interaction (In/Out)
-    opt_double(&argc, argv, "-r", &r);                  // Radius of Interaction (In/Out)
-    opt_double(&argc,argv,"-T",&Tmax);                  // Censoring threshold (if the system is not synchronized before Tmax stop runing)
-    opt_string(&argc, argv, "-f", filename);            // Output filename
-    opt_string(&argc, argv, "-n", neighborhood);        // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
+    calcConn = opt_flag(&argc, argv, 2, "-c", "--conn");              // Calculate connectivity (if flag is on)
+    boundary = opt_flag(&argc, argv, 2, "-b", "--bounded");              // Bounded envoronment (bounce at walls) (if flag is on) or has periodical boundary conditions
+    opt_int(&argc, argv, &Q, 2, "-Q", "--qnearest");                     // Number of Nearest Neighbors
+    opt_int(&argc, argv, &S, 2, "-N", "--agents");                     // Total Number of Agents
+    opt_int(&argc, argv, &R, 2, "-R", "--runs");                     // Number of Runs    
+    opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                 // Random Number Seed    
+    opt_double(&argc, argv, &Vel, 2, "-V", "--speed");                // Speed of agents
+    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                // Interaction parameter Epsilon
+    opt_double(&argc, argv, &L, 2, "-L", "--length");                  // Length of the environment
+    opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");               // Angle of Interaction (In/Out)
+    opt_double(&argc, argv, &r, 2, "-r", "--radius");                  // Radius of Interaction (In/Out)
+    opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                  // Censoring threshold (if the system is not synchronized before Tmax stop runing)
+    opt_string(&argc, argv, filename, 2, "-f", "--filename");            // Output filename
+    opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");        // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
 
     /* ----- Initializations ----- */
 
