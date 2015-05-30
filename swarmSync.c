@@ -66,7 +66,7 @@ int boundary;
 int main(int argc,char **argv)
 {
     /* ------ Variable Declarations -----*/
-    int i, j, k, seed1 = 7, p, R = 1, calcConn;
+    int i, j, k, seed1 = 7, p, R = 1, calcConn, reorientAtInteraction, reorientAtFiring;
     uint32 seed = 5;
     double t, ordPar, zdum, time, firingTime;
     /* Oscillator phase, motion angle theta */
@@ -78,20 +78,22 @@ int main(int argc,char **argv)
 
     /* ----- Input parameters ----- */
     
-    calcConn = opt_flag(&argc, argv, 2, "-c", "--conn");              // Calculate connectivity (if flag is on)
-    boundary = opt_flag(&argc, argv, 2, "-b", "--bounded");              // Bounded envoronment (bounce at walls) (if flag is on) or has periodical boundary conditions
-    opt_int(&argc, argv, &Q, 2, "-Q", "--qnearest");                     // Number of Nearest Neighbors
-    opt_int(&argc, argv, &S, 2, "-N", "--agents");                     // Total Number of Agents
-    opt_int(&argc, argv, &R, 2, "-R", "--runs");                     // Number of Runs    
-    opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                 // Random Number Seed    
-    opt_double(&argc, argv, &Vel, 2, "-V", "--speed");                // Speed of agents
-    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                // Interaction parameter Epsilon
-    opt_double(&argc, argv, &L, 2, "-L", "--length");                  // Length of the environment
-    opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");               // Angle of Interaction (In/Out)
-    opt_double(&argc, argv, &r, 2, "-r", "--radius");                  // Radius of Interaction (In/Out)
-    opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                  // Censoring threshold (if the system is not synchronized before Tmax stop runing)
-    opt_string(&argc, argv, filename, 2, "-f", "--filename");            // Output filename
-    opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");        // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
+    calcConn = opt_flag(&argc, argv, 2, "-c", "--conn");                               // Calculate connectivity (if flag is on)
+    boundary = opt_flag(&argc, argv, 2, "-b", "--bounded");                            // Bounded environment (bounce at walls) (if flag is on) or has periodical boundary conditions
+    reorientAtInteraction = opt_flag(&argc, argv, 1, "--reorientAtInteraction");       // Reorient upon receiving an interaction 
+    reorientAtFiring = opt_flag(&argc, argv, 1, "--reorientAtFiring");                 // Reorient upon firing
+    opt_int(&argc, argv, &Q, 2, "-Q", "--qnearest");                                   // Number of Nearest Neighbors
+    opt_int(&argc, argv, &S, 2, "-N", "--agents");                                     // Total Number of Agents
+    opt_int(&argc, argv, &R, 2, "-R", "--runs");                                       // Number of Runs    
+    opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                                   // Random Number Seed    
+    opt_double(&argc, argv, &Vel, 2, "-V", "--speed");                                 // Speed of agents
+    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                               // Interaction parameter Epsilon
+    opt_double(&argc, argv, &L, 2, "-L", "--length");                                  // Length of the environment
+    opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");                               // Angle of Interaction (In/Out)
+    opt_double(&argc, argv, &r, 2, "-r", "--radius");                                  // Radius of Interaction (In/Out)
+    opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                                 // Censoring threshold (if the system is not synchronized before Tmax stop runing)
+    opt_string(&argc, argv, filename, 2, "-f", "--filename");                          // Output filename
+    opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");                  // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
 
     /* ----- Initializations ----- */
 
@@ -146,12 +148,22 @@ int main(int argc,char **argv)
                 time++;
             }            
             phase[p] = 0;   // Reset phase
+            /* If flag is active reorient upon firing */
+            if(reorientAtFiring) {
+                theta[p] = 2*Pi*ranMT();
+                Vx[p] = Vel*cos(theta[p]); Vy[p] = Vel*sin(theta[p]);
+            }
             /* Find neighbors and update their phase */
             findNeighbors(Px, Py, Vx, Vy, p, neigh); 
             for(k = 1; k <= S; k++) {
-                if(neigh[k] == 1) {
+                if(neigh[k] == 1) {  
                     phase[k] *= (1 + eps);
                     if(phase[k] >= 1) phase[k] = 1;
+                    /* If flag is active reorient upon receiving an interaction */
+                    if(reorientAtInteraction) {
+                        theta[k] = 2*Pi*ranMT();
+                        Vx[k] = Vel*cos(theta[k]); Vy[k] = Vel*sin(theta[k]);
+                    }
                     /* Save connectivity matrix */
                     if(calcConn == 1) {
                         if(t > 0) {
