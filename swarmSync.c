@@ -69,9 +69,9 @@ int main(int argc,char **argv)
     int i, j, k, seed1 = 7, p, R = 1, calcConn;
     uint32 seed = 5;
     double t, ordPar, zdum, time, firingTime;
-    /* Oscillator phase, motion angle phi */
+    /* Oscillator phase, motion angle theta */
     /* xy-position Pxy, xy-velocity Vxy */
-    double *phase, *phi, *Px, *Py, *Vx, *Vy;
+    double *phase, *theta, *Px, *Py, *Vx, *Vy;
     int *neigh, *Stime;
     FILE *out1, *out2;
     char filename[128] = "dat", filename2[128] = "conn";
@@ -100,7 +100,7 @@ int main(int argc,char **argv)
     out1 = fopen(filename, "w"); fclose(out1); out1 = fopen(filename, "a");
  
     phase = dvector(1, S);
-    phi = dvector(1, S);
+    theta = dvector(1, S);
     Px = dvector(1, S);
     Py = dvector(1, S);
     Vx = dvector(1, S);
@@ -123,9 +123,9 @@ int main(int argc,char **argv)
 
         /* Random initial values */
         for(i = 1; i <= S; i++) {
-            phase[i] = ranMT(); phi[i] = 2*Pi*ranMT();
+            phase[i] = ranMT(); theta[i] = 2*Pi*ranMT();
             Px[i] = L*ranMT(); Py[i] = L*ranMT();
-            Vx[i] = Vel*cos(phi[i]); Vy[i] = Vel*sin(phi[i]);
+            Vx[i] = Vel*cos(theta[i]); Vy[i] = Vel*sin(theta[i]);
         }
 
         /***** While not yet synchronized or before Tmax cycles have elapsed *****/
@@ -176,7 +176,7 @@ int main(int argc,char **argv)
     /* ----- Free memory ----- */
     fclose(out1);
     free_dvector(phase, 1, S);
-    free_dvector(phi, 1, S);
+    free_dvector(theta, 1, S);
     free_dvector(Px, 1, S);
     free_dvector(Py, 1, S);
     free_dvector(Vx, 1, S);
@@ -247,14 +247,14 @@ void qNearest(double *Px, double *Py, int p, int *neigh) {
 /* If direction == "In" : p's neighbors will be the agents that see p inside their cone -- Cone of Vision */
 void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction) {
     int j;
-    double phi, dpos;
+    double theta, dpos;
     for(j = 1; j <= S; j++) {
         if(j == p) continue;
         dpos = edist(Px, Py, p, j);
         if(dpos <= r) {
-            if (direction == "Out") phi = cangle(Px, Py, Vx, Vy, p, j);
-            if (direction == "In") phi = cangle(Px, Py, Vx, Vy, j, p);
-            if(phi <= alpha) neigh[j] = 1;            
+            if (direction == "Out") theta = cangle(Px, Py, Vx, Vy, p, j);
+            if (direction == "In") theta = cangle(Px, Py, Vx, Vy, j, p);
+            if(theta <= alpha) neigh[j] = 1;            
         }
     }
 }
