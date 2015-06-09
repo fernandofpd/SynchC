@@ -1,6 +1,6 @@
 /* ---------- swarmSync.c --------- */
-/* Swarm Synchronization of S particles moving with speed vel in a square environment of length L */
-/* Particles are linear integrate and fire oscillators with period tau */
+/* Swarm Synchronization of S particles moving with speed "speed" in a square environment of length "L" */
+/* Particles are linear integrate and fire oscillators with period "tau" */
 /* When an oscillator's  phase reaches 1 it is reset to 0 and interacts with its neighbors */
 /* This interaction is a multiplicative update of the neighbor's phase by a factor (1 + epsilon) */
 /* Several type of neighborhoods are included */
@@ -18,36 +18,40 @@
 #include "nrutil.h"
 #include "options.h"
 #include "cokus.h"
-#define Pi 2.*asin(1.)
+#define PI 2.*asin(1.)
 
 /* ----------- Function Declarations ----------- */
 
 void maxfind(int *p, double *phase);
 /* Random number generator */
 double ranMT(void);
+/* ----- Random Normal number generator ----- */
+double ranNorm(void);
+/* N-Dimensional directional cosines */
+void cosines(double **theta, int i);
 /* Find Neighbors */
-void findNeighbors(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh);
+void findNeighbors(double **pos, double **vel, int p, int *neigh);
 /* Find Q nearest neighbors of unit k */
-void qNearest(double *Px, double *Py, int p, int *neigh);
+void qNearest(double **pos, int p, int *neigh);
 /* Find neighbors in cone */
-void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction);
+void cone(double **pos, double **vel, int p, int *neigh, char *direction);
 /* Distance and angle between p & k */
-double edist(double *Px, double *Py, int p, int k);
-double cangle(double *Px, double *Py, double *Vx, double *Vy, int p, int k);
+double edist(double **pos, int p, int k);
+double cangle(double **pos, double **vel,int p,int k);
 /* Calculate Order Parameter */
 double orderpar(double *phase);
-/* Calculate next firing or wall hit */
-void unboundedMove(double *x, double *y, double *Vx, double *Vy, double t);
-void boundedMove(double *x, double *y, double *Vx, double *Vy, double t);
+/* Update positions until next firing */
+void unboundedMove(double **pos, double **vel, double t);
+void boundedMove(double **pos, double **vel, double **theta, double t);
 
 /* ----------  Parameters ----------- */
 
-/* Tau, epsilon, unit number S, box size L, velocity Vel */
+/* Tau, epsilon, unit number S, box size L, velocity speed */
 double tau = 1.;
 double eps = 0.1;
 int S = 20;
 double L = 400;
-double Vel = 0.1;
+double speed = 0.1;
 /* Synchronization minimum smin, maximum cycle count Tmax */
 double smin = 1.e-6;
 double Tmax = 1e7;
@@ -59,6 +63,7 @@ double r = 400;
 /* Number of nearest neighbors */
 int Q = 1;
 
+int Dims = 2;
 int boundary;
 
 /* ---------- Main ----------- */
@@ -66,16 +71,17 @@ int boundary;
 int main(int argc,char **argv)
 {
     /* ------ Variable Declarations -----*/
-    int i, j, k, seed1 = 7, p, R = 1, calcConn, reorientAtInteraction, reorientAtFiring;
+    int i, j, k, d, seed1 = 7, p, R = 1, calcConn, reorientAtInteraction, reorientAtFiring;
     uint32 seed = 5;
     double t, ordPar, zdum, time, firingTime;
     /* Oscillator phase, motion angle theta */
     /* xy-position Pxy, xy-velocity Vxy */
-    double *phase, *theta, *Px, *Py, *Vx, *Vy;
+    double *phase, **theta, **pos,  **vel;
     int *neigh, *Stime;
     FILE *out1, *out2;
     char filename[128] = "dat", filename2[128] = "conn";
 
+    /* ------ Variable Declarations -----*/
     /* ----- Input parameters ----- */
     
     calcConn = opt_flag(&argc, argv, 2, "-c", "--conn");                               // Calculate connectivity (if flag is on)
@@ -85,8 +91,9 @@ int main(int argc,char **argv)
     opt_int(&argc, argv, &Q, 2, "-Q", "--qnearest");                                   // Number of Nearest Neighbors
     opt_int(&argc, argv, &S, 2, "-N", "--agents");                                     // Total Number of Agents
     opt_int(&argc, argv, &R, 2, "-R", "--runs");                                       // Number of Runs    
+    opt_int(&argc, argv, &Dims, 2, "-D", "--dimensions");                              // Number of Runs    
     opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                                   // Random Number Seed    
-    opt_double(&argc, argv, &Vel, 2, "-V", "--speed");                                 // Speed of agents
+    opt_double(&argc, argv, &speed, 2, "-V", "--speed");                               // Speed of agents
     opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                               // Interaction parameter Epsilon
     opt_double(&argc, argv, &L, 2, "-L", "--length");                                  // Length of the environment
     opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");                               // Angle of Interaction (In/Out)
@@ -97,16 +104,14 @@ int main(int argc,char **argv)
 
     /* ----- Initializations ----- */
 
-    alpha = Pi/180*alpha;
+    alpha = PI/180*alpha;
 
     out1 = fopen(filename, "w"); fclose(out1); out1 = fopen(filename, "a");
  
     phase = dvector(1, S);
-    theta = dvector(1, S);
-    Px = dvector(1, S);
-    Py = dvector(1, S);
-    Vx = dvector(1, S);
-    Vy = dvector(1, S);
+    theta = dmatrix(1, S, 1, Dims);
+    pos = dmatrix(1, S, 1, Dims);
+    vel = dmatrix(1, S, 1, Dims);
     Stime = ivector(1, R);
     neigh = ivector(1, S);
 
@@ -125,19 +130,23 @@ int main(int argc,char **argv)
 
         /* Random initial values */
         for(i = 1; i <= S; i++) {
-            phase[i] = ranMT(); theta[i] = 2*Pi*ranMT();
-            Px[i] = L*ranMT(); Py[i] = L*ranMT();
-            Vx[i] = Vel*cos(theta[i]); Vy[i] = Vel*sin(theta[i]);
+            phase[i] = ranMT(); 
+            cosines(theta, i);
+            for(d = 1; d <= Dims; d++) {
+                pos[i][d] = L*ranMT();
+                vel[i][d] = speed*theta[i][d];
+            } 
         }
 
         /***** While not yet synchronized or before Tmax cycles have elapsed *****/
         while(zdum > smin && time < Tmax) {
             /***** Update phases and perform movement *****/
-            maxfind(&p, phase); t = 1 - phase[p];       // Index of next firing unit p, time t            
-            for(i = 1; i <= S; i++) {phase[i] += t;}    // Update phases and positions
+            maxfind(&p, phase); t = 1 - phase[p];       // Index of next firing unit p, time t
+            for(i = 1; i <= S; i++) phase[i] += t;      // Update phases
+            // Update positions until next firing
             if(t > 0) {
-                if(boundary) boundedMove(Px, Py, Vx, Vy, t);
-                else unboundedMove(Px, Py, Vx, Vy, t);
+                if(boundary) boundedMove(pos, vel, theta, t);
+                else unboundedMove(pos, vel, t);
             }
 
             /***** Firings and Interactions with Neighbors *****/
@@ -150,19 +159,19 @@ int main(int argc,char **argv)
             phase[p] = 0;   // Reset phase
             /* If flag is active reorient upon firing */
             if(reorientAtFiring) {
-                theta[p] = 2*Pi*ranMT();
-                Vx[p] = Vel*cos(theta[p]); Vy[p] = Vel*sin(theta[p]);
+                cosines(theta, p);
+                for(d = 1; d <= Dims; d++) vel[p][d] = speed*theta[p][d]; 
             }
             /* Find neighbors and update their phase */
-            findNeighbors(Px, Py, Vx, Vy, p, neigh); 
+            findNeighbors(pos, vel, p, neigh); 
             for(k = 1; k <= S; k++) {
                 if(neigh[k] == 1) {  
                     phase[k] *= (1 + eps);
                     if(phase[k] >= 1) phase[k] = 1;
                     /* If flag is active reorient upon receiving an interaction */
                     if(reorientAtInteraction) {
-                        theta[k] = 2*Pi*ranMT();
-                        Vx[k] = Vel*cos(theta[k]); Vy[k] = Vel*sin(theta[k]);
+                        cosines(theta, k);
+                        for(d = 1; d <= Dims; d++) vel[k][d] = speed*theta[k][d]; 
                     }
                     /* Save connectivity matrix */
                     if(calcConn == 1) {
@@ -188,11 +197,9 @@ int main(int argc,char **argv)
     /* ----- Free memory ----- */
     fclose(out1);
     free_dvector(phase, 1, S);
-    free_dvector(theta, 1, S);
-    free_dvector(Px, 1, S);
-    free_dvector(Py, 1, S);
-    free_dvector(Vx, 1, S);
-    free_dvector(Vy, 1, S);
+    free_dmatrix(theta, 1, S, 1, Dims);
+    free_dmatrix(pos, 1, S, 1, Dims);
+    free_dmatrix(vel, 1, S, 1, Dims);
     free_ivector(Stime, 1, R);
     free_ivector(neigh, 1, S);
 
@@ -213,19 +220,44 @@ double ranMT(void)
     return (double) randomMT()/NORM;
 }
 
+/* ----- Random Normal number generator ----- */
+double ranNorm(void)
+{
+    double x, y;
+    // Box-Muller method
+    x = ranMT(); y = ranMT();
+    return (double) sqrt(-2*log(x))*cos(2*PI*y);
+}
+
+/* ----- N-Dimensional directional cosines ----- */
+void cosines(double **theta, int i)
+{
+    int d;
+    double dum, sum = 0;
+
+    for(d = 1; d <= Dims; d++) {
+        dum =  ranNorm();
+        sum += dum*dum; 
+        theta[i][d] = dum;
+    }
+    for(d = 1; d <= Dims; d++) theta[i][d] /= sqrt(sum);
+}
+
 /* ------ Find all neighbors ----- */
-void findNeighbors(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh) {
+void findNeighbors(double **pos, double **vel, int p, int *neigh)
+{
     int i;
     /* Initialize neighborhood to zero */
     for(i = 1; i <= S; i++) neigh[i] = 0;
     /* Use appropriate function according to neighborhood */
-    if(strcmp(neighborhood, "QNearest") == 0) qNearest(Px, Py, p, neigh);
-    else if(strcmp(neighborhood, "ConeOut") == 0) cone(Px, Py, Vx, Vy, p, neigh, "Out");
-    else if(strcmp(neighborhood, "ConeIn") == 0) cone(Px, Py, Vx, Vy, p, neigh, "In");
+    if(strcmp(neighborhood, "QNearest") == 0) qNearest(pos, p, neigh);
+    else if(strcmp(neighborhood, "ConeOut") == 0) cone(pos, vel, p, neigh, "Out");
+    else if(strcmp(neighborhood, "ConeIn") == 0) cone(pos, vel, p, neigh, "In");
 }
 
 /* ----- Find Q nearest neighbors ----- */
-void qNearest(double *Px, double *Py, int p, int *neigh) {
+void qNearest(double **pos, int p, int *neigh)
+{
     int i, j, foo;
     double dum = 2*L*L, dum1;
     double dis[9];
@@ -236,7 +268,7 @@ void qNearest(double *Px, double *Py, int p, int *neigh) {
     /* Calculate distances to all other oscillators */
     for(i = 1; i <= S; i++) {
         if(i == p) continue;
-        dis2all[i] = edist(Px, Py, p, i);
+        dis2all[i] = edist(pos, p, i);
     }
 
     /* Find Q nearest neighbors */
@@ -257,35 +289,40 @@ void qNearest(double *Px, double *Py, int p, int *neigh) {
 /* ----- Find Neighbors in a Cone ---- */
 /* If direction == "Out" : p's neighbors will be the agents that lie inside its cone -- Cone of Influence */
 /* If direction == "In" : p's neighbors will be the agents that see p inside their cone -- Cone of Vision */
-void cone(double *Px, double *Py, double *Vx, double *Vy, int p, int *neigh, char *direction) {
+void cone(double **pos, double **vel, int p, int *neigh, char *direction)
+{
     int j;
-    double theta, dpos;
+    double angle, dpos;
     for(j = 1; j <= S; j++) {
         if(j == p) continue;
-        dpos = edist(Px, Py, p, j);
+        dpos = edist(pos, p, j);
         if(dpos <= r) {
-            if (direction == "Out") theta = cangle(Px, Py, Vx, Vy, p, j);
-            if (direction == "In") theta = cangle(Px, Py, Vx, Vy, j, p);
-            if(theta <= alpha) neigh[j] = 1;            
+            if (direction == "Out") angle = cangle(pos, vel, p, j);
+            if (direction == "In") angle = cangle(pos, vel, j, p);
+            if(angle <= alpha) neigh[j] = 1;            
         }
     }
 }
 
 /* ----- Euclidian distance between p & k ----- */
-double edist(double *Px, double *Py, int p, int k)
+double edist(double **pos, int p, int k)
 {
-    double dis;
-    dis = sqrt((Px[p]-Px[k])*(Px[p]-Px[k]) + (Py[p]-Py[k])*(Py[p]-Py[k]));
+    int d;
+    double dis = 0;
+    for(d = 1; d <= Dims; d++) dis += (pos[p][d] - pos[k][d])*(pos[p][d] - pos[k][d]);
+    dis = sqrt(dis); 
     return(dis);
 }
 
 /* ----- Angle between p->k and p's direction of motion ----- */
-double cangle(double *Px,double *Py,double *Vx,double *Vy,int p,int k)
+double cangle(double **pos, double **vel,int p,int k)
 {
-    double angle;
+    int d;
+    double angle = 0;
 
     /* Use scalar product between vel(p) and pos(k)-pos(p) */
-    angle = (Vx[p]*(Px[k]-Px[p])+Vy[p]*(Py[k]-Py[p]))/(Vel*edist(Px,Py,p,k));
+    for(d = 1; d <= Dims; d++) angle += vel[p][d]*(pos[k][d] -pos[p][d]);
+    angle /= (speed*edist(pos, p, k));
     angle = acos(angle); 
  
     return(angle);
@@ -296,47 +333,42 @@ double orderpar(double *phase)
 {
     int i;
     double p = 0;
-    for(i = 1; i <= S; i++) p += cos(2*Pi*phase[i]);    
+    for(i = 1; i <= S; i++) p += cos(2*PI*phase[i]);    
     p /= S;
     return(p);
 }
 
 /* ----- Movement in an unbounded environment (cyclic boundary conditions) ---- */
-void unboundedMove(double *x, double *y, double *Vx, double *Vy, double t)
+void unboundedMove(double **pos, double **vel, double t)
 {
-    int i;
+    int i, d;
     for(i = 1; i <= S; i++) {
-        x[i] += Vx[i]*t; y[i] += Vy[i]*t; // Update positions
-        /* Periodical boundary conditions */
-        while(x[i] > L) {x[i] -= L;}
-        while(y[i] > L) {y[i] -= L;}
-        while(x[i] < 0) {x[i] += L;}
-        while(y[i] < 0) {y[i] += L;}
+        for(d = 1; d <= Dims; d++) {
+            pos[i][d] += vel[i][d]*t;
+            /* Periodical boundary conditions */
+            while(pos[i][d] > L) pos[i][d] -= L;
+            while(pos[i][d] < 0) pos[i][d] += L;
+        }
     }
-    
 }
 
 /* ----- Movement in a bounded environment (random reflections at wall) ---- */
-void boundedMove(double *x, double *y, double *Vx, double *Vy, double t)
+void boundedMove(double **pos, double **vel, double **theta, double t)
 {
-    int i, q;
+    int i, d, q, bounceDim, dir;
     double tb, dum;
-    
+
     while(t > 0) {
         tb = 2;
         /* Compute time for next boundary hit */
         for(i = 1; i <= S; i++) {
-            if(Vx[i] > 0) dum = (L-x[i])/Vx[i];
-            if(Vx[i] < 0) dum = (-x[i])/Vx[i];
-            if(Vx[i] == 0) dum = 2;
-            if(dum < tb) {
-                tb = dum; q = i;
-            }
-            if(Vy[i] > 0) dum = (L-y[i])/Vy[i];
-            if(Vy[i] < 0) dum = (-y[i])/Vy[i];
-            if(Vy[i] == 0) dum = 2;
-            if(dum < tb) {
-                tb = dum; q = i + S;
+            for(d = 1; d <= Dims; d++) {
+                if(vel[i][d] > 0) dum = (L - pos[i][d])/vel[i][d];
+                if(vel[i][d] < 0) dum = (-pos[i][d])/vel[i][d];
+                if(vel[i][d] == 0) dum = 2;
+                if(dum < tb) {
+                    tb = dum; q = i; bounceDim = d;
+                }
             }
         }
         
@@ -346,20 +378,19 @@ void boundedMove(double *x, double *y, double *Vx, double *Vy, double t)
         
         /* Update positions */
         for(i = 1; i <= S; i++) {
-            x[i] += Vx[i]*tb; y[i] += Vy[i]*tb;
+            for(d = 1; d <= Dims; d++) {
+                pos[i][d] += vel[i][d]*tb;
+            }
         }
         
         /* If wall is hit do random reflection */
-        /* distinguish x-wall (q <= S) and y-wall */
+        /* Distinguish close end (pos[q][bounceDim]=0) and far end (pos[q][bounceDim]=L) */
+        dir = (vel[q][bounceDim] > 0) ? -1 : 1;
         if(t > 0) {
-            dum = Pi*ranMT();
-            if(q <= S) {
-                Vx[q] = -(Vx[q]>=0)*sin(dum)*Vel + (Vx[q]<0)*sin(dum)*Vel;
-                Vy[q] = Vel*cos(2*dum);
-            } 
-            else {
-                Vy[q-S] = -(Vy[q-S]>=0)*sin(dum)*Vel + (Vy[q-S]<0)*sin(dum)*Vel;
-                Vx[q-S] = Vel*cos(2*dum);
+            cosines(theta, q);
+            for(d = 1; d <= Dims; d++) {
+                vel[q][d] = speed*theta[q][d];
+                if(d == bounceDim) vel[q][d] = fabs(vel[q][d])*dir;
             }
         }
     }
