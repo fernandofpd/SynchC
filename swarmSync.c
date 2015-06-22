@@ -36,13 +36,15 @@ void qNearest(double **pos, int p, int *neigh);
 /* Find neighbors in cone */
 void cone(double **pos, double **vel, int p, int *neigh, char *direction);
 /* Distance and angle between p & k */
-double edist(double **pos, int p, int k);
-double cangle(double **pos, double **vel,int p,int k);
+double edist(double **pos, int p, int k, int withShifts, double *shift);
+double cangle(double **pos, double **vel, int p, int k, double dist, double *shift, int shiftSign);
 /* Calculate Order Parameter */
 double orderpar(double *phase);
 /* Update positions until next firing */
 void unboundedMove(double **pos, double **vel, double t);
 void boundedMove(double **pos, double **vel, double **theta, double t);
+
+void boundaryShifts();
 
 /* ----------  Parameters ----------- */
 
@@ -64,7 +66,10 @@ double r = 400;
 int Q = 1;
 
 int Dims = 2;
-int boundary;
+int boundary = 0;
+
+int numShifts;
+double **shifts;
 
 /* ---------- Main ----------- */
 
@@ -115,6 +120,8 @@ int main(int argc,char **argv)
     Stime = ivector(1, R);
     neigh = ivector(1, S);
 
+    boundaryShifts();
+
     /* Initialize random numbers */
     seed = (uint32)(seed1); seedMT(seed);
 
@@ -163,7 +170,7 @@ int main(int argc,char **argv)
                 for(d = 1; d <= Dims; d++) vel[p][d] = speed*theta[p][d]; 
             }
             /* Find neighbors and update their phase */
-            findNeighbors(pos, vel, p, neigh); 
+            findNeighbors(pos, vel, p, neigh);
             for(k = 1; k <= S; k++) {
                 if(neigh[k] == 1) {  
                     phase[k] *= (1 + eps);
@@ -268,7 +275,7 @@ void qNearest(double **pos, int p, int *neigh)
     /* Calculate distances to all other oscillators */
     for(i = 1; i <= S; i++) {
         if(i == p) continue;
-        dis2all[i] = edist(pos, p, i);
+        dis2all[i] = edist(pos, p, i, 0, shifts[1]);
     }
 
     /* Find Q nearest neighbors */
@@ -291,41 +298,88 @@ void qNearest(double **pos, int p, int *neigh)
 /* If direction == "In" : p's neighbors will be the agents that see p inside their cone -- Cone of Vision */
 void cone(double **pos, double **vel, int p, int *neigh, char *direction)
 {
-    int j;
-    double angle, dpos;
+    int j, k;
+    double angle, dist;
     for(j = 1; j <= S; j++) {
         if(j == p) continue;
-        dpos = edist(pos, p, j);
-        if(dpos <= r) {
-            if (direction == "Out") angle = cangle(pos, vel, p, j);
-            if (direction == "In") angle = cangle(pos, vel, j, p);
-            if(angle <= alpha) neigh[j] = 1;            
+        for (k = 1; k <= numShifts; k++) {
+            dist = edist(pos, p, j, 1, shifts[k]);
+            if(dist <= r) {
+                if (direction == "Out") angle = cangle(pos, vel, p, j, dist, shifts[k], 1);
+                if (direction == "In") angle = cangle(pos, vel, j, p, dist, shifts[k], -1);
+                if(angle <= alpha) {neigh[j] = 1; break;}
+            }
         }
     }
 }
 
 /* ----- Euclidian distance between p & k ----- */
-double edist(double **pos, int p, int k)
+/* Shifts in the position of k are accepted through the array 'shift' (size 1xDim) if 'withShifts == 1' */
+/* 'withShifts = 0' allows simple calculation of the shortest distance with periodic boundary conditions */
+double edist(double **pos, int p, int k, int withShifts, double *shift)
 {
     int d;
-    double dis = 0;
-    for(d = 1; d <= Dims; d++) dis += (pos[p][d] - pos[k][d])*(pos[p][d] - pos[k][d]);
-    dis = sqrt(dis); 
+    double dis = 0, foo;
+
+    for(d = 1; d <= Dims; d++) {
+        foo = abs(pos[k][d] - pos[p][d] + withShifts*shift[d]);
+        // If periodical boundary conditions calculate shortest distance
+        if (withShifts == 0 && boundary == 0 && foo > L/2) foo = L - foo;
+        foo *= foo;
+        dis += foo;
+    }
+    dis = sqrt(dis);
     return(dis);
 }
 
 /* ----- Angle between p->k and p's direction of motion ----- */
-double cangle(double **pos, double **vel,int p,int k)
+double cangle(double **pos, double **vel, int p, int k, double dist, double *shift, int shiftSign)
 {
     int d;
     double angle = 0;
 
     /* Use scalar product between vel(p) and pos(k)-pos(p) */
-    for(d = 1; d <= Dims; d++) angle += vel[p][d]*(pos[k][d] -pos[p][d]);
-    angle /= (speed*edist(pos, p, k));
+    for(d = 1; d <= Dims; d++) angle += vel[p][d]*(pos[k][d] - pos[p][d] + shiftSign*shift[d]);
+    angle /= speed*dist;
     angle = acos(angle); 
  
     return(angle);
+}
+
+/* N-tuple of position shifts if periodic boundary conditions */
+void boundaryShifts()
+{
+    int j, k, setSize = 3;
+    double set[3] = {0, L, -L}, dum[Dims];
+    int i[Dims];
+
+    if (boundary == 0) numShifts = (int) pow(setSize, Dims);
+    else numShifts = 1;
+    shifts = dmatrix(1, numShifts, 1, Dims);
+    
+    // Initialize
+    for(j = 0; j < Dims; j++) {
+        i[j] = 0;
+        dum[j] = set[0];
+        shifts[1][j+1] = set[0];
+    }
+    
+    // Calculate all n-tuples if periodic boundary conditions
+    k = 1;
+    while(1) {
+        if(k == numShifts) break;
+        k++;
+        for(j = 0; j < Dims; j++) {
+            i[j]++; 
+            if(i[j] < setSize) { 
+                dum[j] = set[i[j]];
+                break;
+            }
+            i[j] = 0;
+            dum[j] = set[0];
+        }
+        for(j = 0; j < Dims; j++) shifts[k][j+1] = dum[j];
+    }
 }
 
 /* ----- Calculate Order Parameter ----- */
