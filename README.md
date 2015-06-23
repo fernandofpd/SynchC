@@ -1,5 +1,5 @@
 # Swarm Synchronization
-Swarm Synchronization of S particles moving with speed *vel* in a *D-dimensional* hypercube of length *L*. 
+Swarm Synchronization of *NumAgents* particles moving with speed *vel* in a *D-dimensional* hypercube of length *L*. 
 Particles are linear integrate and fire oscillators with period *tau*. 
 When an oscillator's  phase reaches 1 it is reset to 0 and interacts with its neighbors. 
 This interaction is a multiplicative update of the neighbor's phase by a factor *1 + epsilon*. 

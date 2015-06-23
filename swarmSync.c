@@ -39,7 +39,7 @@ void boundaryShifts();
 /* ----------  Parameters ----------- */
 /* Agent parameters */
 double tau = 1.;                        // Oscillator period
-double eps = 0.1;                       // Interaction strength, epsylon
+double eps = 0.1;                       // Interaction strength, epsilon
 int numAgents = 20;                     // Number of agents
 double speed = 0.1;                     // Speed of the agents
 /* Scenario parameters */
