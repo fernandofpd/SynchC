@@ -51,7 +51,7 @@ char neighborhood[128] = "QNearest";    // Neighborhood type (QNearest, ConeIn o
 double alpha = 18;                      // Angle of Interaction (used in ConeIn & ConeOut)
 double r = 400;                         // Raange of Interaction (used in ConeIn & ConeOut)
 int Q = 1;                              // Number of Nearest Neighbors (used in QNearest)
-double prob = 1;
+double prob = 1;                        // Probability of Interacting with Found Neighbors
 /* Synchronization parameters */
 double smin = 1.e-6;                    // Synchronization minimum, separation from perfect syncrhony
 double Tmax = 1e7;                      // Maximum cycle count (censoring value)
@@ -90,6 +90,7 @@ int main(int argc,char **argv)
     opt_double(&argc, argv, &length, 2, "-length", "--length");                        // Length of the environment
     opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");                               // Angle of Interaction (In/Out)
     opt_double(&argc, argv, &r, 2, "-r", "--radius");                                  // Radius of Interaction (In/Out)
+    opt_double(&argc, argv, &r, 2, "-p", "--prob");                                    // Probability of interaction with neighbors
     opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                                 // Censoring threshold (stop run if system not synchronized before Tmax)
     opt_string(&argc, argv, filename, 2, "-f", "--filename");                          // Output filename
     opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");                  // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
@@ -244,6 +245,10 @@ void findNeighbors(double **pos, double **vel, int p, int *neigh)
     if(strcmp(neighborhood, "QNearest") == 0) qNearest(pos, p, neigh);
     else if(strcmp(neighborhood, "ConeOut") == 0) cone(pos, vel, p, neigh, "Out");
     else if(strcmp(neighborhood, "ConeIn") == 0) cone(pos, vel, p, neigh, "In");
+    /* Neighbors only with certain probability */
+    for(i = 1; i <= numAgents; i++) {
+        if(neigh[i] == 1) neigh[i] = ranMT() <= prob;
+    }
 }
 
 /* ----- Find Q nearest neighbors ----- */
