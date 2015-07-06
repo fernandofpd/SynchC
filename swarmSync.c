@@ -413,7 +413,7 @@ void boundedMove(double **pos, double **vel, double **theta, double t)
         /* Boundary hit before next firing? */
         if(tb > t) tb = t;
         t -= tb;
-        
+
         /* Update positions */
         for(i = 1; i <= numAgents; i++) {
             for(d = 1; d <= dims; d++) {
@@ -423,8 +423,8 @@ void boundedMove(double **pos, double **vel, double **theta, double t)
         
         /* If wall is hit do random reflection */
         /* Distinguish close end (pos[q][bounceDim]=0) and far end (pos[q][bounceDim]=length) */
-        dir = (vel[q][bounceDim] > 0) ? -1 : 1;
         if(t > 0) {
+        dir = (vel[q][bounceDim] > 0) ? -1 : 1;
             cosines(theta, q);
             for(d = 1; d <= dims; d++) {
                 vel[q][d] = speed*theta[q][d];
