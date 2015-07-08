@@ -7,7 +7,8 @@ This interaction is a multiplicative update of the neighbor's phase by a factor 
 Several type of neighborhoods are supported:  
 - **QNearest**: p's neighbors are the Q closest particles.  
 - **ConeOut**: p's neighbors will be the agents that lie inside its cone, i.e. *Cone of Influence*.  
-- **ConeIn**: p's neighbors will be the agents that see p inside their cone, i.e *Cone of Vision*.  
+- **ConeIn**: p's neighbors will be the agents that see p inside their cone, i.e *Cone of Vision*.
+Compatible with the above interaction it is also possible to define a *probability* of interaction with the neighbors. That is, the particles that make up the actual neighborhood will be selected with certain probability from an initial neighborhood, was found following the selected method from the ones above.
 
 **Bounded** and **unbounded** (cyclic) environments are supported. 
 Reorientation to a random direction opposite to the wall's normal occur at wall hit for bounded environments. 

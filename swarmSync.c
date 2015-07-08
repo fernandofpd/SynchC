@@ -87,7 +87,7 @@ int main(int argc,char **argv)
     opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                                   // Random Number Seed    
     opt_double(&argc, argv, &speed, 2, "-V", "--speed");                               // Speed of agents
     opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                               // Interaction parameter Epsilon
-    opt_double(&argc, argv, &length, 2, "-length", "--length");                        // Length of the environment
+    opt_double(&argc, argv, &length, 2, "-L", "--length");                        // Length of the environment
     opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");                               // Angle of Interaction (In/Out)
     opt_double(&argc, argv, &r, 2, "-r", "--radius");                                  // Radius of Interaction (In/Out)
     opt_double(&argc, argv, &r, 2, "-p", "--prob");                                    // Probability of interaction with neighbors
@@ -311,7 +311,7 @@ double edist(double **pos, int p, int k, int withShifts, double *shift)
     double dis = 0, foo;
 
     for(d = 1; d <= dims; d++) {
-        foo = abs(pos[k][d] - pos[p][d] + withShifts*shift[d]);
+        foo = fabs(pos[k][d] - pos[p][d] + withShifts*shift[d]);
         // If periodical boundary conditions calculate shortest distance
         if (withShifts == 0 && boundary == 0 && foo > length/2) foo = length - foo;
         foo *= foo;
