@@ -20,6 +20,7 @@
 #include "cokus.h"
 
 #define PI 2.*asin(1.)
+#define FLAG -1
 
 /* ----------- Function Declarations ----------- */
 void maxfind(int *p, double *phase);
@@ -35,6 +36,7 @@ double orderpar(double *phase);
 void unboundedMove(double **pos, double **vel, double t);
 void boundedMove(double **pos, double **vel, double **theta, double t);
 void boundaryShifts();
+int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols, double minVal, double maxVal, double flagVal);
 
 /* ----------  Parameters ----------- */
 /* Agent parameters */
@@ -67,38 +69,42 @@ int main(int argc,char **argv)
     /* ----- Variable Declarations and Inicializations -----*/
     int i, j, k, d, seed1 = 7, p;
     uint32 seed = 5;
-    int calculateConnectivity, reorientAtInteraction, reorientAtFiring;    // Flags
+    int calculateConnectivity, reorientAtInteraction, reorientAtFiring;           // Some flags
     double t, firingTime, orderParam;
-    double *phase, **theta, **pos,  **vel;                                 // Oscillators phases, motion angles, positions and velocities
-    int *neigh;                                                            // Neighbor indices at each firing
-    int numRuns = 1, *syncTimes, time;                                     // Number of Runs and syncronization times on each run
-    FILE *out1, *out2;                                                     // Output files
-    char filename[128] = "dat", filename2[128] = "conn";
+    double *phase, **theta, **pos,  **vel, **phase_0, **pos_0, **vel_0;           // Oscillators phases, motion angles, positions and velocities
+    int *neigh;                                                                   // Neighbor indices at each firing
+    int numRuns = 1, *syncTimes, time;                                            // Number of Runs and syncronization times on each run
+    FILE *tsyncOUT, *connOUT;                                                     // Output files
+    char ftsync[56] = "dat", fconn[56] = "conn";                                  // Output filenames
+    char fphase[56] = "phases.txt", fpos[56] = "pos.txt", fvel[56] = "vel.txt";   // Input filenames
 
     /* ----- Input parameters ----- */
-    calculateConnectivity = opt_flag(&argc, argv, 2, "-c", "--conn");                  // Calculate connectivity (if flag is on)
-    boundary = opt_flag(&argc, argv, 2, "-b", "--bounded");                            // Bounded environment (bounce at walls) (if flag is on) or has periodical boundary conditions
-    reorientAtInteraction = opt_flag(&argc, argv, 1, "--reorientAtInteraction");       // Reorient upon receiving an interaction 
-    reorientAtFiring = opt_flag(&argc, argv, 1, "--reorientAtFiring");                 // Reorient upon firing
-    opt_int(&argc, argv, &Q, 2, "-Q", "--qnearest");                                   // Number of Nearest Neighbors
-    opt_int(&argc, argv, &numAgents, 2, "-N", "--agents");                             // Total Number of Agents
-    opt_int(&argc, argv, &numRuns, 2, "-R", "--runs");                                 // Number of Runs
-    opt_int(&argc, argv, &dims, 2, "-D", "--dimensions");                              // Number of Runs    
-    opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                                   // Random Number Seed    
-    opt_double(&argc, argv, &speed, 2, "-V", "--speed");                               // Speed of agents
-    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                               // Interaction parameter Epsilon
+    calculateConnectivity = opt_flag(&argc, argv, 2, "-c", "--conn");             // Calculate connectivity (if flag is on)
+    boundary = opt_flag(&argc, argv, 2, "-b", "--bounded");                       // Bounded environment (bounce at walls) (if flag is on) or has periodical boundary conditions
+    reorientAtInteraction = opt_flag(&argc, argv, 1, "--reorientAtInteraction");  // Reorient upon receiving an interaction 
+    reorientAtFiring = opt_flag(&argc, argv, 1, "--reorientAtFiring");            // Reorient upon firing
+    opt_int(&argc, argv, &Q, 2, "-Q", "--qnearest");                              // Number of Nearest Neighbors
+    opt_int(&argc, argv, &numAgents, 2, "-N", "--agents");                        // Total Number of Agents
+    opt_int(&argc, argv, &numRuns, 2, "-R", "--runs");                            // Number of Runs
+    opt_int(&argc, argv, &dims, 2, "-D", "--dimensions");                         // Number of Runs    
+    opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                              // Random Number Seed    
+    opt_double(&argc, argv, &speed, 2, "-V", "--speed");                          // Speed of agents
+    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                          // Interaction parameter Epsilon
     opt_double(&argc, argv, &length, 2, "-L", "--length");                        // Length of the environment
-    opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");                               // Angle of Interaction (In/Out)
-    opt_double(&argc, argv, &r, 2, "-r", "--radius");                                  // Radius of Interaction (In/Out)
-    opt_double(&argc, argv, &r, 2, "-p", "--prob");                                    // Probability of interaction with neighbors
-    opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                                 // Censoring threshold (stop run if system not synchronized before Tmax)
-    opt_string(&argc, argv, filename, 2, "-f", "--filename");                          // Output filename
-    opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");                  // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
+    opt_double(&argc, argv, &alpha, 2, "-a", "--alpha");                          // Angle of Interaction (In/Out)
+    opt_double(&argc, argv, &r, 2, "-r", "--radius");                             // Radius of Interaction (In/Out)
+    opt_double(&argc, argv, &r, 2, "-p", "--prob");                               // Probability of interaction with neighbors
+    opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                            // Censoring threshold (stop run if system not synchronized before Tmax)
+    opt_string(&argc, argv, ftsync, 2, "-f", "--filename");                       // Output filename
+    opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");             // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
+    opt_string(&argc, argv, fphase, 1, "--phases");                               // Name of input file with agents initial phases
+    opt_string(&argc, argv, fpos, 1, "--positions");                              // Name of input file with agents initial positions
+    opt_string(&argc, argv, fvel, 1, "--velocities");                             // Name of input file with agents initial velocities 
 
     /* ----- Initializations ----- */
     alpha = PI/180*alpha;
 
-    out1 = fopen(filename, "w"); fclose(out1); out1 = fopen(filename, "a");
+    tsyncOUT = fopen(ftsync, "w"); fclose(tsyncOUT); tsyncOUT = fopen(ftsync, "a");
  
     phase = dvector(1, numAgents);
     theta = dmatrix(1, numAgents, 1, dims);
@@ -107,6 +113,14 @@ int main(int argc,char **argv)
     syncTimes = ivector(1, numRuns);
     neigh = ivector(1, numAgents);
 
+    phase_0 = dmatrix(1, numAgents, 1, 1);
+    pos_0 = dmatrix(1, numAgents, 1, dims);
+    vel_0 = dmatrix(1, numAgents, 1, dims);
+    
+    if(readInputFile(fphase, phase_0, numAgents, 1, 0, 1, FLAG)) return EXIT_FAILURE;
+    if(readInputFile(fpos, pos_0, numAgents, dims, 0, length, FLAG)) return EXIT_FAILURE;
+    if(readInputFile(fvel, vel_0, numAgents, dims, 0, speed, FLAG)) return EXIT_FAILURE;
+
     boundaryShifts();
 
     seed = (uint32)(seed1); seedMT(seed);
@@ -114,20 +128,23 @@ int main(int argc,char **argv)
     /* Loop over the Runs */
     for(j = 1; j <= numRuns; j++) {
         if(calculateConnectivity) {
-            sprintf(filename2, "%sconn%d", filename, j);
-            out2 = fopen(filename2, "w"); fclose(out2); out2 = fopen(filename2, "a");
+            sprintf(fconn, "%sconn%d", fconn, j);
+            connOUT = fopen(fconn, "w"); fclose(connOUT); connOUT = fopen(fconn, "a");
         }
 
         orderParam = 0; time = 0; firingTime = 0;  // Reset
 
-        /* Random initial values */
+        /* Initial values --  Default is random if input file not given or if value flagged on it */
         for(i = 1; i <= numAgents; i++) {
-            phase[i] = ranMT(); 
+            if(phase_0[i][1] >= 0) phase[i] = phase_0[i][1];
+            else phase[i] = ranMT(); 
             cosines(theta, i);
             for(d = 1; d <= dims; d++) {
-                pos[i][d] = length*ranMT();
-                vel[i][d] = speed*theta[i][d];
-            } 
+                if(pos_0[i][d] != FLAG) pos[i][d] = pos_0[i][d];
+                else pos[i][d] = length*ranMT();
+                if(vel_0[i][d] >= 0) vel[i][d] = vel_0[i][d];
+                else vel[i][d] = speed*theta[i][d];
+            }
         }
 
         /***** While not yet synchronized or before Tmax cycles have elapsed *****/
@@ -167,26 +184,26 @@ int main(int argc,char **argv)
                     /* Save connectivity matrix */
                     if(calculateConnectivity == 1) {
                         if(t > 0) {
-                            if (firingTime > 0) fprintf(out2, "\n");
+                            if (firingTime > 0) fprintf(connOUT, "\n");
                             firingTime += t;
-                            fprintf(out2, "%f\t", firingTime);
+                            fprintf(connOUT, "%f\t", firingTime);
                         }
-                        fprintf(out2, "%d\t%d\t", p, k); 
+                        fprintf(connOUT, "%d\t%d\t", p, k); 
                     }
                 }
             }
         }
         /* If not synchronized in Tmax cycles, censor data */
-        if(time >= Tmax) time = -1;
+        if(time >= Tmax) time = FLAG;
         /* Save the synchronization times */
         syncTimes[j] = time;
-        fprintf(out1, "%d\n", syncTimes[j]);
+        fprintf(tsyncOUT, "%d\n", syncTimes[j]);
 
-        if(calculateConnectivity) fclose(out2);
+        if(calculateConnectivity) fclose(connOUT);
     }
  
     /* ----- Free memory ----- */
-    fclose(out1);
+    fclose(tsyncOUT);
     free_dvector(phase, 1, numAgents);
     free_dmatrix(theta, 1, numAgents, 1, dims);
     free_dmatrix(pos, 1, numAgents, 1, dims);
@@ -438,3 +455,37 @@ void boundedMove(double **pos, double **vel, double **theta, double t)
         }
     }
 }
+
+int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols, double minVal, double maxVal, double flagVal)
+{
+    int col = 0, row = 1;
+    char next;
+    double dum;
+    char ERROR[256];
+    FILE *fileIN;
+
+    sprintf(ERROR, "ERROR: %s must be a  %d x %d matrix with values in the range [%f, %f] or %f to flag random initialization", inputFilename, numRows, numCols, minVal, maxVal, flagVal);
+    fileIN = fopen(inputFilename, "r");
+
+    if(fileIN) {
+        while(fileIN && !feof(fileIN)) {
+            int count = fscanf(fileIN, "%lf%c", &dum, &next);
+            if(count > 0) {
+                if((dum < minVal || dum > maxVal) && dum != flagVal) {printf("%s\n", ERROR); return 1;}
+                col++;
+                if(col <= numCols) matrix[row][col] = dum;
+                else {printf("%s\n", ERROR); return 1;}
+                if(count == 1 || next == '\n') {
+                    if(row > numRows) {printf("%s\n", ERROR); return 1;}
+                    if(col < numCols) {printf("%s\n", ERROR); return 1;}
+                    row++; col = 0; 
+                }
+            }
+        }
+        if(row <= numRows) {printf("%s\n", ERROR); return 1;}
+        fclose(fileIN);
+    }
+    else for(row = 1; row <= numRows; row++) for(col = 1; col <= numCols; col++) matrix[row][col] = FLAG;
+
+    return 0;
+}        
