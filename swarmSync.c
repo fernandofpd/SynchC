@@ -36,7 +36,7 @@ double orderpar(double *phase);
 void unboundedMove(double **pos, double **vel, double t);
 void boundedMove(double **pos, double **vel, double **theta, double t);
 void boundaryShifts();
-int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols, double minVal, double maxVal, double flagVal);
+int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols, double minVal, double maxVal);
 
 /* ----------  Parameters ----------- */
 /* Agent parameters */
@@ -117,9 +117,9 @@ int main(int argc,char **argv)
     pos_0 = dmatrix(1, numAgents, 1, dims);
     vel_0 = dmatrix(1, numAgents, 1, dims);
     
-    if(readInputFile(fphase, phase_0, numAgents, 1, 0, 1, FLAG)) return EXIT_FAILURE;
-    if(readInputFile(fpos, pos_0, numAgents, dims, 0, length, FLAG)) return EXIT_FAILURE;
-    if(readInputFile(fvel, vel_0, numAgents, dims, 0, speed, FLAG)) return EXIT_FAILURE;
+    if(readInputFile(fphase, phase_0, numAgents, 1, 0, 1)) return EXIT_FAILURE;
+    if(readInputFile(fpos, pos_0, numAgents, dims, 0, length)) return EXIT_FAILURE;
+    if(readInputFile(fvel, vel_0, numAgents, dims, 0, speed)) return EXIT_FAILURE;
 
     boundaryShifts();
 
@@ -128,7 +128,7 @@ int main(int argc,char **argv)
     /* Loop over the Runs */
     for(j = 1; j <= numRuns; j++) {
         if(calculateConnectivity) {
-            sprintf(fconn, "%sconn%d", fconn, j);
+            sprintf(fconn, "%sconn%d", ftsync, j);
             connOUT = fopen(fconn, "w"); fclose(connOUT); connOUT = fopen(fconn, "a");
         }
 
@@ -174,13 +174,6 @@ int main(int argc,char **argv)
             findNeighbors(pos, vel, p, neigh);
             for(k = 1; k <= numAgents; k++) {
                 if(neigh[k] == 1) {  
-                    phase[k] *= (1 + eps);
-                    if(phase[k] >= 1) phase[k] = 1;
-                    /* If flag is active reorient upon receiving an interaction */
-                    if(reorientAtInteraction) {
-                        cosines(theta, k);
-                        for(d = 1; d <= dims; d++) vel[k][d] = speed*theta[k][d]; 
-                    }
                     /* Save connectivity matrix */
                     if(calculateConnectivity == 1) {
                         if(t > 0) {
@@ -188,7 +181,14 @@ int main(int argc,char **argv)
                             firingTime += t;
                             fprintf(connOUT, "%f\t", firingTime);
                         }
-                        fprintf(connOUT, "%d\t%d\t", p, k); 
+                        fprintf(connOUT, "%d\t%d\t%f\t", p, k, phase[k]); 
+                    }
+                    phase[k] *= (1 + eps);
+                    if(phase[k] >= 1) phase[k] = 1;
+                    /* If flag is active reorient upon receiving an interaction */
+                    if(reorientAtInteraction) {
+                        cosines(theta, k);
+                        for(d = 1; d <= dims; d++) vel[k][d] = speed*theta[k][d]; 
                     }
                 }
             }
@@ -456,7 +456,10 @@ void boundedMove(double **pos, double **vel, double **theta, double t)
     }
 }
 
-int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols, double minVal, double maxVal, double flagVal)
+/* ----- Read a matrix from an input file and save it into the corresponding 2D array ---- */
+/* Checks that input is of size = numRows x numCols */
+/* Each value must lie in the [minVal, maxVal] interval or be equal to FLAG (-1 = FLAG < minVal < maxVal) */
+int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols, double minVal, double maxVal)
 {
     int col = 0, row = 1;
     char next;
@@ -464,14 +467,14 @@ int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols
     char ERROR[256];
     FILE *fileIN;
 
-    sprintf(ERROR, "ERROR: %s must be a  %d x %d matrix with values in the range [%f, %f] or %f to flag random initialization", inputFilename, numRows, numCols, minVal, maxVal, flagVal);
+    sprintf(ERROR, "ERROR: %s must be a  %d x %d matrix with values in the range [%f, %f] or %d to flag random initialization", inputFilename, numRows, numCols, minVal, maxVal, FLAG);
     fileIN = fopen(inputFilename, "r");
 
     if(fileIN) {
         while(fileIN && !feof(fileIN)) {
             int count = fscanf(fileIN, "%lf%c", &dum, &next);
             if(count > 0) {
-                if((dum < minVal || dum > maxVal) && dum != flagVal) {printf("%s\n", ERROR); return 1;}
+                if((dum < minVal || dum > maxVal) && dum != FLAG) {printf("%s\n", ERROR); return 1;}
                 col++;
                 if(col <= numCols) matrix[row][col] = dum;
                 else {printf("%s\n", ERROR); return 1;}
