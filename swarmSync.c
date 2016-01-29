@@ -66,20 +66,24 @@ double **shifts;
 /* ---------- Main ---------- */
 int main(int argc,char **argv)
 {
-    /* ----- Variable Declarations and Inicializations -----*/
+    /* ----- Variable Declarations and Initializations -----*/
     int i, j, k, d, seed1 = 7, p;
     uint32 seed = 5;
-    int calculateConnectivity, reorientAtInteraction, reorientAtFiring;           // Some flags
-    double t, firingTime, orderParam;
+    int calculateConnectivity, outputOrderParameter, outputInterspike;            // Flags related to output
+    int reorientAtInteraction, reorientAtFiring;                                  // Flags related to movement
+    double t, firingTime, prevFiring, orderParam;
     double *phase, **theta, **pos,  **vel, **phase_0, **pos_0, **vel_0;           // Oscillators phases, motion angles, positions and velocities
     int *neigh;                                                                   // Neighbor indices at each firing
     int numRuns = 1, *syncTimes, time;                                            // Number of Runs and syncronization times on each run
-    FILE *tsyncOUT, *connOUT;                                                     // Output files
-    char ftsync[56] = "dat", fconn[56] = "conn";                                  // Output filenames
+    FILE *tsyncOUT, *connOUT, *opOUT, *isOUT;                                     // Output files
     char fphase[56] = "phases.txt", fpos[56] = "pos.txt", fvel[56] = "vel.txt";   // Input filenames
+    // Output filenames
+    char ftsync[56] = "dat", fconn[56] = "conn", fop[56] = "ordPar", fis[56] = "interspike";
 
     /* ----- Input parameters ----- */
     calculateConnectivity = opt_flag(&argc, argv, 2, "-c", "--conn");             // Calculate connectivity (if flag is on)
+    outputOrderParameter = opt_flag(&argc, argv, 1, "--ordpar");                  // Output order parameter (if flag is on)
+    outputInterspike = opt_flag(&argc, argv, 1, "--interspike");                  // Output firing times (if flag is on)
     boundary = opt_flag(&argc, argv, 2, "-b", "--bounded");                       // Bounded environment (bounce at walls) (if flag is on) or has periodical boundary conditions
     reorientAtInteraction = opt_flag(&argc, argv, 1, "--reorientAtInteraction");  // Reorient upon receiving an interaction 
     reorientAtFiring = opt_flag(&argc, argv, 1, "--reorientAtFiring");            // Reorient upon firing
@@ -131,8 +135,16 @@ int main(int argc,char **argv)
             sprintf(fconn, "%sconn%d", ftsync, j);
             connOUT = fopen(fconn, "w"); fclose(connOUT); connOUT = fopen(fconn, "a");
         }
+        if(outputOrderParameter) {
+            sprintf(fop, "%sordPar%d", ftsync, j);
+            opOUT = fopen(fop, "w"); fclose(opOUT); opOUT = fopen(fop, "a");
+        }
+        if(outputInterspike) {
+            sprintf(fis, "%sinterspike%d", ftsync, j);
+            isOUT = fopen(fis, "w"); fclose(isOUT); isOUT = fopen(fis, "a");
+        }
 
-        orderParam = 0; time = 0; firingTime = 0;  // Reset
+        orderParam = 0; time = 0; firingTime = 0; prevFiring = 0;  // Reset
 
         /* Initial values --  Default is random if input file not given or if value flagged on it */
         for(i = 1; i <= numAgents; i++) {
@@ -152,6 +164,7 @@ int main(int argc,char **argv)
             /***** Update phases and perform movement *****/
             maxfind(&p, phase); t = 1 - phase[p];           // Index of next firing unit, p; time until next firing, t
             for(i = 1; i <= numAgents; i++) phase[i] += t;  // Update phases
+            if(t > 0) firingTime += t;                      // Calculate absolute time of firing
             // Update positions until next firing
             if(t > 0) {
                 if(boundary) boundedMove(pos, vel, theta, t);
@@ -163,6 +176,11 @@ int main(int argc,char **argv)
             if(p == 1) {
                 orderParam = orderpar(phase);
                 time++;
+                if(outputOrderParameter) fprintf(opOUT, "%f\n", orderParam);
+                if(outputInterspike) {
+                    if(prevFiring != 0) fprintf(isOUT, "%f\n", firingTime - prevFiring); //If it's not first firing
+                    prevFiring = firingTime;
+                }
             }            
             phase[p] = 0;   // Reset phase
             /* If flag is active reorient upon firing */
@@ -177,8 +195,7 @@ int main(int argc,char **argv)
                     /* Save connectivity matrix */
                     if(calculateConnectivity == 1) {
                         if(t > 0) {
-                            if (firingTime > 0) fprintf(connOUT, "\n");
-                            firingTime += t;
+                            if (firingTime != t) fprintf(connOUT, "\n"); // If it's not first line
                             fprintf(connOUT, "%f\t", firingTime);
                         }
                         fprintf(connOUT, "%d\t%d\t%f\t", p, k, phase[k]); 
