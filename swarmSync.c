@@ -67,7 +67,7 @@ double **shifts;
 int main(int argc,char **argv)
 {
     /* ----- Variable Declarations and Initializations -----*/
-    int i, j, k, d, seed1 = 7, p;
+    int i, j, k, d, seed1 = 7, p, flag;
     uint32 seed = 5;
     int calculateConnectivity, outputOrderParameter, outputInterspike;            // Flags related to output
     int reorientAtInteraction, reorientAtFiring;                                  // Flags related to movement
@@ -190,13 +190,15 @@ int main(int argc,char **argv)
             }
             /* Find neighbors and update their phase */
             findNeighbors(pos, vel, p, neigh);
+            flag = t > 0;  //flag to print out the firing time if calculateConnectivity = 1
             for(k = 1; k <= numAgents; k++) {
                 if(neigh[k] == 1) {  
                     /* Save connectivity matrix */
                     if(calculateConnectivity == 1) {
-                        if(t > 0) {
+                        if(flag) {
                             if (firingTime != t) fprintf(connOUT, "\n"); // If it's not first line
                             fprintf(connOUT, "%f\t", firingTime);
+                            flag = 0;
                         }
                         fprintf(connOUT, "%d\t%d\t%f\t", p, k, phase[k]); 
                     }
