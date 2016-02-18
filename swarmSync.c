@@ -26,7 +26,7 @@
 /* ----------- Function Declarations ----------- */
 double orderpar(double *phase);
 void initialize(double **phase_0, double *phase, double **pos_0, double **pos, double **vel_0, double **vel);
-void phaseResponse(double *phase, int idx);
+double phaseResponse(double phase);
 
 
 /* ---------- Main ---------- */
@@ -36,7 +36,7 @@ int main(int argc,char **argv)
     int i, j, k, p, PRINT_TIME;
     uint32 seed = 5;
     int OUT_CONN, OUT_ORDPAR, OUT_INTERSPIKE;                                     // Flags related to output
-    double dt, time, prevFiring, orderParam;
+    double dt, time, prevFiring, orderParam;                                      // Time to next firing, actual time, previous firing time of reference oscillator and order parameter
     double *phase, **pos,  **vel, **phase_0, **pos_0, **vel_0;                    // Oscillators phases, positions and velocities
     int *neigh;                                                                   // Neighbor indices at each firing
     int Tsync;                                                                    // Syncronization times on each run
@@ -49,7 +49,7 @@ int main(int argc,char **argv)
     inputOptions(argc, argv, &OUT_CONN, &OUT_ORDPAR, &OUT_INTERSPIKE, ftsync, fphase, fpos, fvel);
     boundaryShifts();
     seed = (uint32)(seed1); seedMT(seed);
-    
+
     alpha = PI/180*alpha;
 
     tsyncFILE = fopen(ftsync, "w");
@@ -77,6 +77,7 @@ int main(int argc,char **argv)
         orderParam = 0; Tsync = 0; time = 0; prevFiring = 0;     // Reset
         initialize(phase_0, phase, pos_0, pos, vel_0, vel);      // Initialize phases, positions and velocities
 
+
         /***** While not yet synchronized or before Tmax cycles have elapsed *****/
         while ((orderParam < (1 -smin)) && Tsync < Tmax) {
 
@@ -99,7 +100,7 @@ int main(int argc,char **argv)
                 prevFiring = time;
             }            
 
-            if (reorientFiring) reorient(vel, p);                // If flag is active reorient upon firing
+            if (REORIENT_FIRING) reorient(vel, p);               // If flag is active reorient upon firing
 
             findNeighbors(pos, vel, p, neigh);
 
@@ -107,12 +108,11 @@ int main(int argc,char **argv)
             for (k = 1; k <= numAgents; k++) {
                 if (neigh[k] == 1) {  
                     if (OUT_CONN) outConn(&connFILE, &PRINT_TIME, time, dt, p, k, phase); // Output Connectivity
-                    if (reorientInteraction) reorient(vel, k);   // If flag is active reorient upon receiving an interaction
-                    phaseResponse(phase, k);                     // Update phases after interaction
+                    if (REORIENT_INTERACTION) reorient(vel, k);  // If flag is active reorient upon receiving an interaction
+                    phase[k] += phaseResponse(phase[k]);         // Update phases after interaction
                 }
             }
         }
-        
         if (Tsync >= Tmax) Tsync = FLAG;                         // If not synchronized in Tmax cycles, censor data
 
         fprintf(tsyncFILE, "%d\n", Tsync);                       // Save the synchronization times
@@ -147,10 +147,24 @@ double orderpar(double *phase)
 }
 
 /* ------ Update the phases of oscillators after receiving interaction ---- */
-void phaseResponse(double *phase, int idx)
+double phaseResponse(double phase)
 {
-    phase[idx] *= (1 + eps);
-    if (phase[idx] >= 1) phase[idx] = 1;
+    double dphase = 0;
+
+    if (phase < refrac) dphase = 0;    // No update during refractory period
+
+    else if (!strcmp(responseFunc, "multiplicative")) dphase = eps*phase;
+
+    else if (!strcmp(responseFunc, "sawtooth")) {
+        if (phase < 0.5) dphase = -phase;
+        else dphase = 1 - phase; 
+    }
+
+    else if (!strcmp(responseFunc, "sine")) dphase = -sin(2*PI*phase)/(2*PI);
+
+    if ((phase + dphase) >= 1) dphase = 1 - phase;    // Prevent from exceeding threshold
+
+    return dphase;
 }
 
 /* ---- Initialize phases, positions and velocities ---- */
