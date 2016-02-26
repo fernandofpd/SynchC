@@ -4,6 +4,7 @@
 
 #include "movement.h"
 #include "variables.h"
+#include "tools.h"
 #include "nrutil.h"
 
 /* N-tuple of position shifts if periodic boundary conditions */

@@ -4,6 +4,7 @@
 
 #include "inputs.h"
 #include "variables.h"
+#include "options.h"
 
 /* ----- Read a matrix from an input file and save it into the corresponding 2D array ---- */
 /* Checks that input is of size = numRows x numCols */
@@ -49,7 +50,8 @@ void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *out
     opt_int(&argc, argv, &numAgents, 2, "-N", "--agents");                       // Total Number of Agents
     opt_int(&argc, argv, &dims, 2, "-D", "--dimensions");                        // Number of Runs    
     opt_double(&argc, argv, &speed, 2, "-V", "--speed");                         // Speed of agents
-    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                         // Interaction parameter Epsilon
+    opt_double(&argc, argv, &eps, 2, "-e", "--epsilon");                         // Interaction parameter Epsilon (multiplicative PRC)
+    opt_double(&argc, argv, &kappa, 2, "-k", "--kappa");                         // Interaction parameter Kappa (delay-response PRC)
     opt_double(&argc, argv, &refrac, 1, "--refractory");                         // Refractory period
     opt_double(&argc, argv, &length, 2, "-L", "--length");                       // Length of the environment
     opt_double(&argc, argv, &Tmax, 2, "-T", "--tmax");                           // Censoring threshold (stop run if system not synchronized before Tmax)

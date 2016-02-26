@@ -6,7 +6,8 @@
 
 /* Agent parameters */
 double tau = 1.;                           // Oscillator period
-double eps = 0.1;                          // Interaction strength, epsilon
+double eps = 0.1;                          // Interaction strength, epsilon, for multiplicative PRC
+double kappa = 1;                          // Coupling strenght for delay-advance PRC
 char responseFunc[50] = "multiplicative";  // Phase Response function ("multiplicative", "sawtooth", "sine")
 double refrac = 0;                         // Refractory period (as a fraction of the phase)
 int numAgents = 20;                        // Number of agents

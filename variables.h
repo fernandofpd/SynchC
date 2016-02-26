@@ -7,6 +7,7 @@
 /* Agent parameters */
 extern double tau;                  // Oscillator period
 extern double eps;                  // Interaction strength, epsilon
+extern double kappa;                // Coupling strenght for delay-advance PRC
 extern char responseFunc[50];       // Phase Response function ("multiplicative", "sawtooth", "sine")
 double refrac;                      // Refractory period (as a fraction of the phase)
 extern int numAgents;               // Number of agents

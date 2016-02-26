@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include "neighborhood.h"
 #include "variables.h"

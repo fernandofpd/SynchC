@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "neighborhood.h"
 #include "movement.h"
@@ -20,7 +21,6 @@
 #include "inputs.h"
 #include "outputs.h"
 #include "nrutil.h"
-#include "options.h"
 #include "cokus.h"
 
 /* ----------- Function Declarations ----------- */
@@ -151,18 +151,24 @@ double phaseResponse(double phase)
 {
     double dphase = 0;
 
-    if (phase < refrac) dphase = 0;    // No update during refractory period
+    if (phase < refrac) dphase = 0;                   // No update during refractory period
 
-    else if (!strcmp(responseFunc, "multiplicative")) dphase = eps*phase;
+    else if (!strcmp(responseFunc, "multiplicative")) dphase = eps*phase;  // Multiplicative update with factor eps
 
     else if (!strcmp(responseFunc, "sawtooth")) {
-        if (phase < 0.5) dphase = -phase;
-        else dphase = 1 - phase; 
+        if (phase < 0.5) dphase = -phase;             // Delay/inhibition with negative slope for phase < 0.5
+        else dphase = 1 - phase;                      // Advance/excitation with negative slope otherwise
+        dphase *= kappa;                              // Slope weight 0 < kappa <= 1
     }
 
-    else if (!strcmp(responseFunc, "sine")) dphase = -sin(2*PI*phase)/(2*PI);
+    else if (!strcmp(responseFunc, "sine")) dphase = -kappa*sin(2*PI*phase)/(2*PI); // Like "sawtooth" but with variable slope
 
-    if ((phase + dphase) >= 1) dphase = 1 - phase;    // Prevent from exceeding threshold
+    if (!strcmp(responseFunc,"mixed")) {
+        if (phase < refrac) dphase = -kappa*phase;    // Inhitbitory (delay) for phase < refrac
+        else dphase = eps*phase;                      // Multiplicative otherwise
+    }
+
+    if ((phase + dphase) >= 1) dphase = 1 - phase;    // Prevent from exceeding threshold (effective negative slope)
 
     return dphase;
 }
