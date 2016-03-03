@@ -140,10 +140,16 @@ int main(int argc,char **argv)
 double orderpar(double *phase)
 {
     int i;
-    double p = 0;
-    for (i = 1; i <= numAgents; i++) p += cos(2*PI*phase[i]);    
-    p /= numAgents;
-    return(p);
+    double real = 0, im = 0;
+    for (i = 1; i <= numAgents; i++) {
+        real += cos(2*PI*phase[i]);
+        im += sin(2*PI*phase[i]);
+    }
+    real /= numAgents;
+    im /= numAgents;
+
+    if (!strcmp(ordparFunc, "exp")) return sqrt(real*real + im*im);
+    else return real;
 }
 
 /* ------ Update the phases of oscillators after receiving interaction ---- */

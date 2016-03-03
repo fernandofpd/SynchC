@@ -30,5 +30,6 @@ double prob = 1;                           // Probability of Interacting with Fo
 /* Simulation parameters */
 double smin = 1.e-6;                       // Synchronization minimum, separation from perfect syncrhony
 double Tmax = 1e7;                         // Maximum cycle count (censoring value)
+char ordparFunc[10] = "cos";               // Order parameter function 
 int numRuns = 1;                           // Number of runs
 int seed1 = 7;                             // Seed for the random number generator

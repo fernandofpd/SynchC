@@ -30,6 +30,7 @@ extern double prob;                 // Probability of Interacting with Found Nei
 /* Simulation parameters */
 extern double smin;                 // Synchronization minimum, separation from perfect syncrhony
 extern double Tmax;                 // Maximum cycle count (censoring value)
+extern char ordparFunc[10];         // Order parameter function 
 extern int numRuns;                 // Number of runs
 extern int seed1;                   // Seed for the random number generator
 
