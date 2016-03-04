@@ -52,7 +52,7 @@ int main(int argc,char **argv)
 
     alpha = PI/180*alpha;
 
-    tsyncFILE = fopen(ftsync, "w");
+    tsyncFILE = fopen(ftsync, "w"); fclose(tsyncFILE);
  
     phase = dvector(1, numAgents);
     pos = dmatrix(1, numAgents, 1, dims);
@@ -70,6 +70,7 @@ int main(int argc,char **argv)
 
     /* Loop over the Runs */
     for (j = 1; j <= numRuns; j++) {
+        tsyncFILE = fopen(ftsync, "a");
         openFile(OUT_CONN, "conn", ftsync, &connFILE, j);
         openFile(OUT_ORDPAR, "ordPar", ftsync, &ordparFILE, j);
         openFile(OUT_INTERSPIKE, "interspike", ftsync, &intspkFILE, j);
@@ -115,7 +116,7 @@ int main(int argc,char **argv)
         }
         if (Tsync >= Tmax) Tsync = FLAG;                         // If not synchronized in Tmax cycles, censor data
 
-        fprintf(tsyncFILE, "%d\n", Tsync);                       // Save the synchronization times
+        fprintf(tsyncFILE, "%d\n", Tsync); fclose(tsyncFILE);    // Save the synchronization times
 
         if (OUT_CONN) fclose(connFILE);
         if (OUT_ORDPAR) fclose(ordparFILE);
@@ -123,7 +124,6 @@ int main(int argc,char **argv)
     }
  
     /* ----- Free memory ----- */
-    fclose(tsyncFILE);
     free_dvector(phase, 1, numAgents);
     free_dmatrix(pos, 1, numAgents, 1, dims);
     free_dmatrix(vel, 1, numAgents, 1, dims);
