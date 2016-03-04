@@ -59,8 +59,7 @@ void unboundedMove(double **pos, double **vel, double dt)
 void boundedMove(double **pos, double **vel, double dt)
 {
     int i, d, q, bounceDim, dir;
-    double *theta, tb, dum;
-    theta = dvector(1, dims);
+    double tb, dum;
 
     while (dt > 0) {
         tb = 2*tau;
@@ -91,7 +90,6 @@ void boundedMove(double **pos, double **vel, double dt)
         /* Distinguish close end (pos[q][bounceDim]=0) and far end (pos[q][bounceDim]=length) */
         if (dt > 0) {
             dir = (vel[q][bounceDim] > 0) ? -1 : 1;
-            cosines(theta);
             reorient(vel, q);
             vel[q][d] = fabs(vel[q][d])*dir;
         }
