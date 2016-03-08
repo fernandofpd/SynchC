@@ -39,7 +39,7 @@ int main(int argc,char **argv)
     double dt, time, prevFiring, orderParam;                                      // Time to next firing, actual time, previous firing time of reference oscillator and order parameter
     double *phase, **pos,  **vel, **phase_0, **pos_0, **vel_0;                    // Oscillators phases, positions and velocities
     int *neigh;                                                                   // Neighbor indices at each firing
-    int Tsync;                                                                    // Syncronization times on each run
+    int Tcycles, Tsync;                                                           // Elapsed cycles and syncronization time
     FILE *tsyncFILE, *connFILE, *ordparFILE, *intspkFILE;                         // Output files
     char fphase[56] = "phases.txt", fpos[56] = "pos.txt", fvel[56] = "vel.txt";   // Input filenames
     // Output filenames
@@ -75,12 +75,12 @@ int main(int argc,char **argv)
         openFile(OUT_ORDPAR, "ordPar", ftsync, &ordparFILE, j);
         openFile(OUT_INTERSPIKE, "interspike", ftsync, &intspkFILE, j);
 
-        orderParam = 0; Tsync = 0; time = 0; prevFiring = 0;     // Reset
+	orderParam = 0; Tcycles = 0; Tsync = FLAG; time = 0; prevFiring = 0;     // Reset
         initialize(phase_0, phase, pos_0, pos, vel_0, vel);      // Initialize phases, positions and velocities
 
 
         /***** While not yet synchronized or before Tmax cycles have elapsed *****/
-        while ((orderParam < (1 -smin)) && Tsync < Tmax) {
+        while ((orderParam < (1 -smin) || STOPTMAX*(Tcycles < Tmax)) && (Tcycles < Tmax || STOPSYNC*(orderParam < (1 -smin)))) {
 
             p = maxFind(phase); dt = 1 - phase[p];               // Index of next firing unit, p; time until next firing, t
             for (i = 1; i <= numAgents; i++) phase[i] += dt;     // Update phases of other units
@@ -95,7 +95,7 @@ int main(int argc,char **argv)
 
             if (p == 1) {
                 orderParam = orderpar(phase);                    // When reference unit 1 fires calculate order parameter
-                Tsync++;
+                Tcycles++;
                 if (OUT_ORDPAR) fprintf(ordparFILE, "%f\n", orderParam);    // Output Order Parameters
                 if (OUT_INTERSPIKE && prevFiring != 0) fprintf(intspkFILE, "%f\n", time - prevFiring);  // Output Interspike Interval 
                 prevFiring = time;
@@ -113,8 +113,8 @@ int main(int argc,char **argv)
                     phase[k] += phaseResponse(phase[k]);         // Update phases after interaction
                 }
             }
+            if (orderParam >= (1 -smin) && Tsync == FLAG) Tsync = Tcycles;
         }
-        if (Tsync >= Tmax) Tsync = FLAG;                         // If not synchronized in Tmax cycles, censor data
 
         fprintf(tsyncFILE, "%d\n", Tsync); fclose(tsyncFILE);    // Save the synchronization times
 

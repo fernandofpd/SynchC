@@ -33,6 +33,8 @@ extern double Tmax;                 // Maximum cycle count (censoring value)
 extern char ordparFunc[10];         // Order parameter function 
 extern int numRuns;                 // Number of runs
 extern int seed1;                   // Seed for the random number generator
+extern int STOPTMAX;                // Stop simulation only when exactly Tmax cycles have elapsed
+extern int STOPSYNC;                // Stop simulation only when synchronized, independently of the time it takes
 
 /* ---------- Other Declarations ---------- */
 int numShifts;

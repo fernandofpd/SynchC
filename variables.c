@@ -33,3 +33,5 @@ double Tmax = 1e7;                         // Maximum cycle count (censoring val
 char ordparFunc[10] = "cos";               // Order parameter function 
 int numRuns = 1;                           // Number of runs
 int seed1 = 7;                             // Seed for the random number generator
+int STOPTMAX = 0;                          // Stop simulation only when exactly Tmax cycles have elapsed
+int STOPSYNC = 0;                          // Stop simulation only when synchronized, independently of the time it takes

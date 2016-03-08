@@ -63,6 +63,8 @@ void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *out
 
     opt_int(&argc, argv, &numRuns, 2, "-R", "--runs");                           // Number of Runs
     opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                             // Random Number Seed
+    STOPSYNC = opt_flag(&argc, argv, 1, "--stopsync");                           // Stop simulation only when exactly Tmax cycles have elapsed
+    STOPTMAX = opt_flag(&argc, argv, 1, "--stoptmax");                           // Stop simulation only when synchronized, independently of the time it takes
 
     /* Define characteristics of movement, interaction or model */
     bounded = opt_flag(&argc, argv, 2, "-b", "--bounded");                       // Bounded environment (bounce at walls) (if flag is on) or has periodical boundary conditions
