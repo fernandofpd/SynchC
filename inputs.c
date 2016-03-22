@@ -1,6 +1,7 @@
 /* Fernando Perez-Diaz, February 2016           */
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "inputs.h"
 #include "variables.h"
