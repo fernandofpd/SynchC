@@ -33,10 +33,10 @@ double phaseResponse(double phase);
 int main(int argc,char **argv)
 {
     /* ----- Variable Declarations and Initializations -----*/
-    int i, j, k, p, PRINT_TIME;
+    int i, j, k, p;
     uint32 seed = 5;
     int OUT_CONN, OUT_ORDPAR, OUT_INTERSPIKE;                                     // Flags related to output
-    double dt, time, prevFiring, orderParam;                                      // Time to next firing, actual time, previous firing time of reference oscillator and order parameter
+    double dt, time, prevFiring, orderParam, lastTimePrint = 0;                   // Time to next firing, actual time, previous firing time of reference oscillator and order parameter
     double *phase, **pos,  **vel, **phase_0, **pos_0, **vel_0;                    // Oscillators phases, positions and velocities
     int *neigh;                                                                   // Neighbor indices at each firing
     int Tcycles, Tsync;                                                           // Elapsed cycles and syncronization time
@@ -105,10 +105,9 @@ int main(int argc,char **argv)
 
             findNeighbors(pos, vel, p, neigh);
 
-            PRINT_TIME = dt > 0;                                 //flag to print out the firing time if OUT_CONN = 1
             for (k = 1; k <= numAgents; k++) {
                 if (neigh[k] == 1) {  
-                    if (OUT_CONN) outConn(&connFILE, &PRINT_TIME, time, dt, p, k, phase); // Output Connectivity
+                    if (OUT_CONN) outConn(&connFILE, time, &lastTimePrint, p, k, phase); // Output Connectivity
                     if (REORIENT_INTERACTION) reorient(vel, k);  // If flag is active reorient upon receiving an interaction
                     phase[k] += phaseResponse(phase[k]);         // Update phases after interaction
                 }

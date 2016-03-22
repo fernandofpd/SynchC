@@ -13,12 +13,12 @@ void openFile(int flag, char *name, char *fname, FILE **file, int idx)
 }
 
 /* Save connectivity matrix */
-void outConn(FILE **connFILE, int *PRINT_TIME, double firingTime, double dt, int p, int k, double *phase)
+void outConn(FILE **connFILE, double firingTime, double *lastTimePrint, int p, int k, double *phase)
 {
-    if (*PRINT_TIME) {
-        if (firingTime != dt) fprintf(*connFILE, "\n"); // If it's not first line
+    if (firingTime != *lastTimePrint) {
+        if (*lastTimePrint != 0) fprintf(*connFILE, "\n"); // If it's not first line
         fprintf(*connFILE, "%f\t", firingTime);
-        *PRINT_TIME = 0;
+        *lastTimePrint = firingTime;
     }
     fprintf(*connFILE, "%d\t%d\t%f\t", p, k, phase[k]); 
 }
