@@ -62,13 +62,13 @@ void boundedMove(double **pos, double **vel, double dt)
     double tb, dum;
 
     while (dt > 0) {
-        tb = 2*tau;
+        tb = INFINITY;
         /* Compute time for next boundary hit */
         for (i = 1; i <= numAgents; i++) {
             for (d = 1; d <= dims; d++) {
                 if (vel[i][d] > 0) dum = (length - pos[i][d])/vel[i][d];
                 if (vel[i][d] < 0) dum = (-pos[i][d])/vel[i][d];
-                if (vel[i][d] == 0) dum = 2*tau;
+                if (vel[i][d] == 0) dum = INFINITY;
                 if (dum < tb) {
                     tb = dum; q = i; bounceDim = d;
                 }

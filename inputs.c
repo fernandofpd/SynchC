@@ -45,7 +45,7 @@ int readInputFile(char *inputFilename, double **matrix, int numRows, int numCols
 }
 
 /* ----- Input Options ----- */
-void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *outInterspike, char *ftsync, char  *fphase, char *fpos, char *fvel)
+void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *outInterspike, char *ftsync, char  *fphase, char *ftau, char *fpos, char *fvel)
 {
     /* Define Parameters */
     opt_int(&argc, argv, &numAgents, 2, "-N", "--agents");                       // Total Number of Agents
@@ -83,6 +83,7 @@ void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *out
     /* Set input or output file names */
     opt_string(&argc, argv, ftsync, 2, "-f", "--filename");                      // Output filename
     opt_string(&argc, argv, fphase, 1, "--phases");                              // Name of input file with agents initial phases
+    opt_string(&argc, argv, ftau, 1, "--taus");                              // Name of input file with agents initial phases
     opt_string(&argc, argv, fpos, 1, "--positions");                             // Name of input file with agents initial positions
     opt_string(&argc, argv, fvel, 1, "--velocities");                            // Name of input file with agents initial velocities 
 } 

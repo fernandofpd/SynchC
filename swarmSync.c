@@ -25,28 +25,29 @@
 
 /* ----------- Function Declarations ----------- */
 double orderpar(double *phase);
-void initialize(double **phase_0, double *phase, double **pos_0, double **pos, double **vel_0, double **vel);
+void initialize(double **phase_0, double *phase, double **tau_0, double *tau, double **pos_0, double **pos, double **vel_0, double **vel);
 double phaseResponse(double phase);
+int findNext(double *phase, double *tau);
 
 
 /* ---------- Main ---------- */
-int main(int argc,char **argv)
+int main(int argc, char **argv)
 {
     /* ----- Variable Declarations and Initializations -----*/
     int i, j, k, p;
     uint32 seed = 5;
     int OUT_CONN, OUT_ORDPAR, OUT_INTERSPIKE;                                     // Flags related to output
     double dt, time, prevFiring, orderParam, lastTimePrint = 0;                   // Time to next firing, actual time, previous firing time of reference oscillator and order parameter
-    double *phase, **pos,  **vel, **phase_0, **pos_0, **vel_0;                    // Oscillators phases, positions and velocities
+    double *phase, *tau, **pos,  **vel, **phase_0, **tau_0, **pos_0, **vel_0;     // Oscillators phases, natural period, positions and velocities
     int *neigh;                                                                   // Neighbor indices at each firing
     int Tcycles, Tsync;                                                           // Elapsed cycles and syncronization time
     FILE *tsyncFILE, *connFILE, *ordparFILE, *intspkFILE;                         // Output files
-    char fphase[56] = "phases.txt", fpos[56] = "pos.txt", fvel[56] = "vel.txt";   // Input filenames
+    char fphase[56] = "phases.txt", ftau[56] = "taus.txt", fpos[56] = "pos.txt", fvel[56] = "vel.txt";   // Input filenames
     // Output filenames
     char ftsync[56] = "dat";
 
     /* ----- Initializations ----- */
-    inputOptions(argc, argv, &OUT_CONN, &OUT_ORDPAR, &OUT_INTERSPIKE, ftsync, fphase, fpos, fvel);
+    inputOptions(argc, argv, &OUT_CONN, &OUT_ORDPAR, &OUT_INTERSPIKE, ftsync, fphase, ftau, fpos, fvel);
     boundaryShifts();
     seed = (uint32)(seed1); seedMT(seed);
 
@@ -55,15 +56,18 @@ int main(int argc,char **argv)
     tsyncFILE = fopen(ftsync, "w"); fclose(tsyncFILE);
  
     phase = dvector(1, numAgents);
+    tau = dvector(1, numAgents);
     pos = dmatrix(1, numAgents, 1, dims);
     vel = dmatrix(1, numAgents, 1, dims);
     neigh = ivector(1, numAgents);
 
     phase_0 = dmatrix(1, numAgents, 1, 1);
+    tau_0 = dmatrix(1, numAgents, 1, 1); 
     pos_0 = dmatrix(1, numAgents, 1, dims);
     vel_0 = dmatrix(1, numAgents, 1, dims);
     
     if (readInputFile(fphase, phase_0, numAgents, 1, 0, 1)) return EXIT_FAILURE;
+    if (readInputFile(ftau, tau_0, numAgents, 1, 0, INFINITY)) return EXIT_FAILURE;
     if (readInputFile(fpos, pos_0, numAgents, dims, 0, length)) return EXIT_FAILURE;
     if (readInputFile(fvel, vel_0, numAgents, dims, 0, speed)) return EXIT_FAILURE;
 
@@ -76,14 +80,15 @@ int main(int argc,char **argv)
         openFile(OUT_INTERSPIKE, "interspike", ftsync, &intspkFILE, j);
 
 	orderParam = 0; Tcycles = 0; Tsync = FLAG; time = 0; prevFiring = 0;     // Reset
-        initialize(phase_0, phase, pos_0, pos, vel_0, vel);      // Initialize phases, positions and velocities
+        initialize(phase_0, phase, tau_0, tau, pos_0, pos, vel_0, vel);      // Initialize phases, positions and velocities
 
 
         /***** While not yet synchronized or before Tmax cycles have elapsed *****/
         while ((orderParam < (1 -smin) || STOPTMAX*(Tcycles < Tmax)) && (Tcycles < Tmax || STOPSYNC*(orderParam < (1 -smin)))) {
-
-            p = maxFind(phase); dt = 1 - phase[p];               // Index of next firing unit, p; time until next firing, t
-            for (i = 1; i <= numAgents; i++) phase[i] += dt;     // Update phases of other units
+            p = findNext(phase, tau);                            // Index of next firing unit, p; 
+            dt = (1 - phase[p])*tau[p];                          // Time until next firing, dt
+            for (i = 1; i <= numAgents; i++)
+                phase[i] += dt/tau[i];                           // Update phases of all units
             phase[p] = 0;                                        // Reset phase of firing unit
 
             if (dt > 0) {
@@ -124,11 +129,13 @@ int main(int argc,char **argv)
  
     /* ----- Free memory ----- */
     free_dvector(phase, 1, numAgents);
+    free_dvector(tau, 1, numAgents);
     free_dmatrix(pos, 1, numAgents, 1, dims);
     free_dmatrix(vel, 1, numAgents, 1, dims);
     free_dmatrix(shifts, 1, numShifts, 1, dims); 
     free_ivector(neigh, 1, numAgents);
     free_dmatrix(phase_0, 1, numAgents, 1, 1);
+    free_dmatrix(tau_0, 1, numAgents, 1, 1);
     free_dmatrix(pos_0, 1, numAgents, 1, dims);
     free_dmatrix(vel_0, 1, numAgents, 1, dims);
 
@@ -151,7 +158,7 @@ double orderpar(double *phase)
     else return real;
 }
 
-/* ------ Update the phases of oscillators after receiving interaction ---- */
+/* ----- Update the phases of oscillators after receiving interaction ---- */
 double phaseResponse(double phase)
 {
     double dphase = 0;
@@ -178,9 +185,23 @@ double phaseResponse(double phase)
     return dphase;
 }
 
+
+/* ----- Find index of next firing unit ----*/
+int findNext(double *phase, double *tau)
+{
+    int i;
+    double *deltaT;    // Time to next firing
+    deltaT = dvector(1, numAgents);
+
+    for (i = 1; i <= numAgents; i++) deltaT[i] = (1 - phase[i])*tau[i];
+    
+    return minFind(deltaT);
+}
+
 /* ---- Initialize phases, positions and velocities ---- */
 /* Default is random if input file not given or if value flagged on it */
-void initialize(double **phase_0, double *phase, double **pos_0, double **pos, double **vel_0, double **vel)
+/* Default value of tau is tauDefault */
+void initialize(double **phase_0, double *phase, double **tau_0, double *tau, double **pos_0, double **pos, double **vel_0, double **vel)
 {
     int i, d;
     double *theta;
@@ -189,6 +210,9 @@ void initialize(double **phase_0, double *phase, double **pos_0, double **pos, d
     for (i = 1; i <= numAgents; i++) {
         if (phase_0[i][1] >= 0) phase[i] = phase_0[i][1];
         else phase[i] = ranMT();
+
+        if (tau_0[i][1] != FLAG) tau[i] = tau_0[i][1];
+        else tau[i] = tauDefault;
  
         cosines(theta);
 

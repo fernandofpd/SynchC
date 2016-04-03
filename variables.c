@@ -5,7 +5,7 @@
 /* ----------  Parameters ----------- */
 
 /* Agent parameters */
-double tau = 1.;                           // Oscillator period
+double tauDefault = 1.;                    // Oscillator period
 double eps = 0.1;                          // Interaction strength, epsilon, for multiplicative PRC
 double kappa = 1;                          // Coupling strenght for delay-advance PRC
 char responseFunc[50] = "multiplicative";  // Phase Response function ("multiplicative", "sawtooth", "sine")
