@@ -195,6 +195,7 @@ int findNext(double *phase, double *tau)
 
     for (i = 1; i <= numAgents; i++) deltaT[i] = (1 - phase[i])*tau[i];
     
+    free_dvector(deltaT, 1, numAgents);
     return minFind(deltaT);
 }
 
