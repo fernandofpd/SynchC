@@ -64,8 +64,8 @@ void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *out
 
     opt_int(&argc, argv, &numRuns, 2, "-R", "--runs");                           // Number of Runs
     opt_int(&argc, argv, &seed1, 2, "-s", "--seed");                             // Random Number Seed
-    STOPSYNC = opt_flag(&argc, argv, 1, "--stopsync");                           // Stop simulation only when exactly Tmax cycles have elapsed
-    STOPTMAX = opt_flag(&argc, argv, 1, "--stoptmax");                           // Stop simulation only when synchronized, independently of the time it takes
+    STOPSYNC = opt_flag(&argc, argv, 1, "--stopsync");                           // Stop simulation only when synchronized, independently of the time it takes
+    STOPTMAX = opt_flag(&argc, argv, 1, "--stoptmax");                           // Stop simulation only when exactly Tmax cycles have elapsed
 
     /* Define characteristics of movement, interaction or model */
     bounded = opt_flag(&argc, argv, 2, "-b", "--bounded");                       // Bounded environment (bounce at walls) (if flag is on) or has periodical boundary conditions
@@ -73,7 +73,7 @@ void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *out
     REORIENT_FIRING = opt_flag(&argc, argv, 1, "--REORIENT_FIRING");             // Reorient upon firing
     opt_string(&argc, argv, neighborhood, 2, "-n", "--neighborhood");            // Define the neighborhood model: {QNearest,ConeOut,ConeIn}
     opt_string(&argc, argv, responseFunc, 1, "--response");                      // Define the phase response function: {multiplicative,sawtooth,sine}
-    opt_string(&argc, argv, ordparFunc, 1, "--ordparfun");                          // Define the order parameter function: {cos,exp}
+    opt_string(&argc, argv, ordparFunc, 1, "--ordparfun");                       // Define the order parameter function: {cos,exp}
 
     /* Set desired outputs */
     *outConn = opt_flag(&argc, argv, 2, "-c", "--conn");                         // Calculate connectivity (if flag is on)
@@ -83,7 +83,7 @@ void inputOptions(int argc, char *argv[], int *outConn, int *outOrdPar, int *out
     /* Set input or output file names */
     opt_string(&argc, argv, ftsync, 2, "-f", "--filename");                      // Output filename
     opt_string(&argc, argv, fphase, 1, "--phases");                              // Name of input file with agents initial phases
-    opt_string(&argc, argv, ftau, 1, "--taus");                              // Name of input file with agents initial phases
+    opt_string(&argc, argv, ftau, 1, "--taus");                                  // Name of input file with agents initial phases
     opt_string(&argc, argv, fpos, 1, "--positions");                             // Name of input file with agents initial positions
     opt_string(&argc, argv, fvel, 1, "--velocities");                            // Name of input file with agents initial velocities 
 } 
