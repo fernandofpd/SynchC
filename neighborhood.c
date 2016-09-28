@@ -67,8 +67,8 @@ void cone(double **pos, double **vel, int p, int *neigh, char *direction)
         for (k = 1; k <= numShifts; k++) {
             dist = edist(pos, p, j, shifts[k]);
             if (dist <= r) {
-                if (direction == "Out") angle = cangle(pos, vel, p, j, dist, shifts[k], 1);
-                if (direction == "In") angle = cangle(pos, vel, j, p, dist, shifts[k], -1);
+                if (strcmp(direction, "Out") == 0) angle = cangle(pos, vel, p, j, dist, shifts[k], 1);
+                if (strcmp(direction, "In") == 0) angle = cangle(pos, vel, j, p, dist, shifts[k], -1);
                 if (angle <= alpha) {neigh[j] = 1; break;}
             }
         }
